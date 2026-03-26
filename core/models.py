@@ -42,19 +42,81 @@ class CustomerProfile(models.Model):
         else:
             print("This is a free account")
 
+
+class SystemTopics(models.Model):
+    topic_name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.topic_name
+    
+def upload_system_course_file(instance, filename):
+    return f"system/{instance.topic_name}/{filename}"
+
+class SystemCourses(models.Model):
+    topic = models.ForeignKey(SystemTopics, on_delete=models.CASCADE)
+
+    course_name = models.CharField(max_length=100)
+
+    course_img_file = models.FileField(upload_to= upload_system_course_file, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.topic.topic_name} - {self.course_name}"
+
+def upload_system_lesson_file(instance, filename):  
+    return f"system/{instance.course.topic.topic_name}/{instance.course.course_name}/{filename}"
+    
+
+class SystemLessons(models.Model):
+    course = models.ForeignKey(SystemCourses, on_delete=models.CASCADE)
+
+    lesson_name = models.CharField(max_length=100)
+
+    youtube_id = models.CharField(max_length=255, null=True, blank=True)
+
+    text_file = models.FileField(upload_to=upload_system_lesson_file)
+    
+    youtube_start_time = models.FloatField(null=True, blank=True)
+
+    youtube_duration = models.PositiveIntegerField(null=True, blank=True)
+
+
+    lesson_img_file = models.FileField(upload_to=upload_system_lesson_file, null=True, blank=True)
+
+    has_audio = models.BooleanField(default=False)
+
+    audio_file = models.FileField(upload_to=upload_system_lesson_file, null=True, blank=True)
+
+    has_timestamp = models.BooleanField(default=False)
+
+    whisper_file = models.FileField(upload_to=upload_system_lesson_file, null=True, blank=True)
+
+    timestamp_file = models.FileField(upload_to=upload_system_lesson_file, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.course.course_name} - {self.lesson_name}"
+
+    
+
+
+
 def upload_course_file(instance, filename):
     return f"{instance.user.username}/{filename}"
     
 class Courses(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
+    system_course = models.ForeignKey(
+        SystemCourses,
+        on_delete= models.SET_NULL,
+        null = True,
+        blank= True
+    )
+
     course_name = models.CharField(max_length=100)
 
     last_open_at = models.DateTimeField(null = True, blank=True)
 
-    is_system = models.BooleanField(default=False) 
-
-    topcie = models.CharField(max_length=100, null = True, blank=True)
+    # is_system = models.BooleanField(default=False) # This field is not necessary because system courses are stored in SystemCourses model
 
     course_img_file = models.FileField(upload_to= upload_course_file, null = True, blank=True)
 
@@ -67,6 +129,12 @@ def upload_lesson_file(instance, filename):
 class Lessons(models.Model):
     course = models.ForeignKey(Courses, on_delete=models.CASCADE)
 
+    system_lesson = models.ForeignKey(
+        SystemLessons,
+        on_delete= models.SET_NULL,
+        null = True,
+        blank=True
+    )
 
     lesson_name = models.CharField(max_length=100)
 
@@ -74,13 +142,17 @@ class Lessons(models.Model):
 
     last_open_at = models.DateTimeField(null = True, blank=True)
 
+    # is_system_lesson = models.BooleanField(default=False) 
+
+
+    text_file = models.FileField(upload_to=upload_lesson_file, null = True, blank=True)
+
     youtube_id = models.CharField(max_length=255, null = True, blank=True)
 
     youtube_start_time = models.FloatField(null = True, blank=True)
 
     youtube_duration = models.PositiveIntegerField(null= True, blank=True)
 
-    text_file = models.FileField(upload_to=upload_lesson_file)
 
     lesson_img_file = models.FileField(upload_to=upload_lesson_file, null=True, blank=True)
 

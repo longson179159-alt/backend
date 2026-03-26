@@ -59,7 +59,8 @@ def create_lesson(request, list_ref, list_id):
     list_words_in_lesson = []
     list_phrases_in_text = []
 
-    words_qs = Words.objects.filter(user = request.user)
+    # filter words queryset for words in list_ref to reduce time of query
+    words_qs = Words.objects.filter(user = request.user, word_key__in = list_ref)
     status_word_dict = {w.word_key : w.word_status for w in words_qs}
     phrases_qs = Phrases.objects.filter(user = request.user)
     phrase_lists = [(ph.phrase.split() , ph.phrase_status) for ph in phrases_qs]

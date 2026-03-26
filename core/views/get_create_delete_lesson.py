@@ -10,13 +10,14 @@ import traceback
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
+from django.db import transaction
 
 import requests
 import os
 from urllib.parse import urlparse
 
-# @login_required
-@csrf_exempt
+@login_required
+# @csrf_exempt
 def get_lesson(request):
     if request.method != "GET":
         return JsonResponse({"message" : "Invalid request!"}, status = 405)
@@ -133,7 +134,7 @@ def generate_unique_lesson_name(course_obj, basename):
             return new_name       
         counter += 1
 
-
+@transaction.atomic
 @csrf_exempt
 @login_required
 def create_youtube_lesson(request):
@@ -240,11 +241,10 @@ def create_youtube_lesson(request):
         return JsonResponse({'message': str(e)}, status = 500)
 
     
-    
-
 
 @csrf_exempt
 @login_required
+@transaction.atomic
 def create_lesson_manually(request):
     if request.method != "POST":
         return JsonResponse({'message' : 'Invalid request !'}, status = 405)
@@ -347,28 +347,3 @@ def create_lesson_manually(request):
     
 
     
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-
-# if input_text:
-#         list_ref, list_id = get_lists_from_text(input_text)
-# else:
-#     text = convert_input_to_text(text_file)
-#     list_ref, list_id = get_lists_from_text(text)
-
-# text_file_dict = {"list_ref": list_ref, "list_id": list_id}
-# text_file_bytes = json.dump(text_file_dict, ensure_ascii=False).encode('utf-8')
-# text_file_name = os.path.splitext(text_file.name)[0] + '.json'
-# text_file_json = ContentFile(text_file_bytes)
-# lesson.text_file.save(text_file_name, text_file_json, save = True)

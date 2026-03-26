@@ -6,9 +6,11 @@ from core.views.create_delete_course import create_course, delete_course
 from core.views.get_create_delete_lesson import get_lesson, delete_lesson, create_youtube_lesson, create_lesson_manually
 from core.views.upload_text_and_audio import upload_text, upload_audio
 from core.views.update_word import update_word, finish_lesson
-from core.views.caculate_specifications import get_data_cards, show_course_infos, get_list_courses, calculate_progress_data
+from core.views.caculate_specifications import  show_course_infos, get_list_courses, calculate_progress_data, get_data_courses_cards, get_data_lessons_cards
+from core.views.review import get_list_words_or_phrases
 from django.conf import settings
 from django.conf.urls.static import static
+
 
 urlpatterns = [
     # auth path
@@ -19,7 +21,9 @@ urlpatterns = [
     path('create_course/', create_course, name = 'create_course'),
     path('delete_course/', delete_course, name = 'delete_course'),
     # Send data to hompage
-    path('continue_study/', get_data_cards, name='get_data_cards'),
+    # path('continue_study/', get_data_cards, name='get_data_cards'),
+    path('get_data_lessons_cards/', get_data_lessons_cards, name='get_data_lessons_cards'),
+    path('get_data_courses_cards/', get_data_courses_cards, name='get_data_courses_cards'),
     path('show_course_infos/', show_course_infos, name='show_course_infos'),
     path('get_list_courses/', get_list_courses, name='get_list_courses'),
     path('get_progress_data/', calculate_progress_data, name = "calculate_progress_data"),
@@ -36,7 +40,10 @@ urlpatterns = [
 
     # word path
     path("update_word/", update_word, name= "update_word" ),
-    path("finish_lesson/",  finish_lesson, name= "finshi_lesson" ),
+    path("finish_lesson/",  finish_lesson, name= "finish_lesson" ),
+
+    # review path
+    path('get_list_words/', get_list_words_or_phrases, name = "get_list_words_or_phrases"),
 
     path("admin/", admin.site.urls)
 ]

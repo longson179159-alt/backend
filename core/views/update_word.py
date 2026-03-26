@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required
 import json
 from django.utils import timezone
 import traceback
+from django.db import transaction
+
 def is_word(text):
     listWords = text.split(" ")
     if len(listWords) == 1:
@@ -14,8 +16,9 @@ def is_word(text):
     
 
 
-@csrf_exempt
+# @csrf_exempt
 @login_required
+@transaction.atomic
 def update_word(request):
     if request.method != "PUT":
         return JsonResponse({"message" : "Invaid request method!"}, status=405)
@@ -30,6 +33,10 @@ def update_word(request):
         tags = list(set(data.get('tags', [])))
         your_meanings = list(set(data.get('your_meanings', [])))
         status = int(data.get("status", 0))
+
+
+        if not text:
+            return JsonResponse({"message": "Text is required"}, status=400)
 
         if is_word(text): 
 
@@ -54,6 +61,9 @@ def update_word(request):
                 print(f"Change tags of {text} :", list_new_tags)
             if "status" in list_changes:
                 print(f"Change status {text} from {word.word_status} to {status}")
+                if status == 0:
+                    Word_Meanings.objects.filter(word = word).delete()
+                    Word_Tags.objects.filter(word = word).delete()
                 word.word_status = status
                 
                 if status == 4 or status == 5:
@@ -61,6 +71,8 @@ def update_word(request):
                 word.save()
         else:
             if status == 0:
+                Phrase_Meanings.objects.filter(phrase__user = request.user, phrase__phrase = text).delete()
+                Phrase_Tags.objects.filter(phrase__user = request.user, phrase__phrase = text).delete()
                 phrase_qs = Phrases.objects.filter(user = request.user, phrase = text)
                
                 print(f"Delete {text}")
@@ -99,7 +111,7 @@ def update_word(request):
     return JsonResponse({"message" : f"updated '{text}' sucessfull!"})
 
 
-@csrf_exempt
+# @csrf_exempt
 @login_required
 def finish_lesson(request):
     if request.method != "PUT":
@@ -109,11 +121,12 @@ def finish_lesson(request):
     data = json.loads(request.body.decode("utf-8"))
     list_words_update = []
     for key, value in data.items():  
+        if not key:
+            continue
         if len(key.split()) > 1 or value != 6 :
             continue
         Words.objects.update_or_create(user = request.user, word_key = key, defaults= {"word_status" : 5}, change_to_learn_at = timezone.now())
         list_words_update.append(key)
-
     
 
     return JsonResponse({"message": "Successfully updated word from this lesson!", "list_words_updated": list_words_update}, status = 200)

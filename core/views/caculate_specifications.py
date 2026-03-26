@@ -8,7 +8,12 @@ import math
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta
+from utils.handle_youtube_url import get_thumbnail_from_youtube_id
+from django.core.paginator import Paginator, EmptyPage
 
+from django.db.models import Count
+# import pagination
+# from d
 def get_dict_status(user):
     words_qs = Words.objects.filter(user = user)
     phrases_qs = Phrases.objects.filter(user = user)
@@ -62,56 +67,49 @@ def caculate_specification(set_words, set_phrases, status_word_dict, status_phra
     return number_newwords, number_lingq, number_knownwords, newword_percents
 
 @csrf_exempt
-# @login_required
-def get_data_cards(request):
+def get_data_lessons_cards(request):
     if request.method != 'GET':
-        return JsonResponse({'message' : 'Invalid request !'}, status = 405)
+        return JsonResponse({'message' : 'Invalid request!'}, status = 405)
     if not request.user.is_authenticated:
-        return JsonResponse({"message": "Not authenticated"}, status=401)
+        return JsonResponse({'message' : "Not authenticated"}, status = 401)
 
     try:
-        print("✅ PATH:", request.path)
-        print("✅ AUTH:", request.user.is_authenticated, repr(request.user))
-        print("✅ USER_ID:", getattr(request.user, "id", None))
-        print("✅ USERNAME:", getattr(request.user, "username", None))
-        print("✅ COOKIES:", dict(request.COOKIES))
-        print("✅ SESSION_KEY:", request.session.session_key)
+        page = int(request.GET.get('page', 1))
+    except ValueError:
+        return JsonResponse({'message': 'Invalid page. It must be an integer.'}, status=400)
 
+    if page < 1:
+        return JsonResponse({'message': 'Invalid page. It must be >= 1.'}, status=400)
+
+    page_size = 10
     
-        # ... continue with your real logic here ...
-
-    except Exception as e:
-        print("🔥 ERROR:", repr(e))
-        traceback.print_exc()
-        return JsonResponse({"error": str(e)}, status=500)
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
-    # Get status dicts
     status_word_dict, status_phrase_dict, list_all_phrases = get_dict_status(request.user)
 
-    twenty_last_opened_lessons = Lessons.objects.filter(course__user = request.user).order_by('-last_open_at')[:20]
+    all_lessons_qs = Lessons.objects.filter(course__user = request.user).select_related('course').order_by('-last_open_at')
+    paginator = Paginator(all_lessons_qs, page_size)
+
+    try:
+        lessons_page = paginator.page(page)
+    except EmptyPage:
+        return JsonResponse({
+            'message': 'Page out of range.'} , status=400)
+
     dataLessonCards = []
-    for lesson_obj in twenty_last_opened_lessons:
-        set_words, set_phrases, total_words = get_lesson_sets(lesson_obj,  list_all_phrases)
+    for lesson_obj in lessons_page.object_list:
+        set_words, set_phrases, total_words = get_lesson_sets(lesson_obj, list_all_phrases)
 
         # Caculate lesson specifications
-    
         number_newwords, number_lingq, number_knownwords, newword_percents = caculate_specification(set_words, set_phrases, status_word_dict, status_phrase_dict)
 
-        list_lesson_names = list(
-            Lessons.objects.filter(course = lesson_obj.course)
-            .order_by("id").values_list('lesson_name', flat=True)
-        )
-        lesson_number = list_lesson_names.index(lesson_obj.lesson_name) + 1
-        
         lesson_img_url = None
         if lesson_obj.lesson_img_file:
             lesson_img_url = request.build_absolute_uri(lesson_obj.lesson_img_file.url)
-        dataLessonCards.append ({
-            "imgUrl": lesson_img_url,
-            "courseName": lesson_obj.course.course_name,
-            'lessonNumber': lesson_number,
+        elif lesson_obj.youtube_id:
+            lesson_img_url = get_thumbnail_from_youtube_id(lesson_obj.youtube_id)
+
+        dataLessonCards.append({
+            'imgUrl' : lesson_img_url,
+            'courseName': lesson_obj.course.course_name,
             'lessonName': lesson_obj.lesson_name,
             'numberNewWords': number_newwords,
             'numberLingQs': number_lingq,
@@ -121,24 +119,71 @@ def get_data_cards(request):
             "numberUniqueWords" : len(set_words)
         })
 
-    # Caculate course specifications
-    twenty_last_opened_courses = [course for course in Courses.objects.filter(user = request.user).order_by("-last_open_at") if Lessons.objects.filter(course = course).count() >0][:20]
+
+    return JsonResponse({
+        "dataLessonCards" : dataLessonCards,
+        "pagination": {
+            "page": lessons_page.number,
+            "pageSize": page_size,
+            "totalPages": paginator.num_pages,
+            "hasNext": lessons_page.has_next(),
+            "hasPrevious": lessons_page.has_previous(),
+            "totalNumberLessons": paginator.count
+        }
+    }, status = 200)
+
+# Create pagination for courses cards with pagesize as 10
+@csrf_exempt
+def get_data_courses_cards(request):
+
+    if request.method != 'GET':
+        return JsonResponse({'message' : 'Invalid request!'}, status = 405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'message' : "Not authenticated"}, status = 401)
+    
+
+    # get page
+    try:
+        page = int(request.GET.get('page', 1))
+    except ValueError:
+        return JsonResponse({'message': 'Invalid page. It must be an integer.'}, status=400)
+    
+    if page < 1:
+        return JsonResponse({'message': 'Invalid page. It must be >= 1.'}, status=400)
+        
+    page_size = 10
+    
+    status_word_dict, status_phrase_dict, list_all_phrases = get_dict_status(request.user)
+
+
+    all_courses_qs = Courses.objects.filter(user = request.user).annotate(num_lessons=Count('lessons')).filter(num_lessons__gt=0).prefetch_related('lessons').order_by('-last_open_at')
+    try:
+        courses_page = Paginator(all_courses_qs, page_size).page(page)
+    except EmptyPage:
+        return JsonResponse({
+            'message': 'Page out of range.'} , status=400)
+                    
     dataCourseCards = []
-    for course_obj in twenty_last_opened_courses:
-        sum_word_set, sum_phrase_set, sum_total_words  = set(), set(), 0
-        lessons_in_course = Lessons.objects.filter(course = course_obj)
+
+    for course_obj in courses_page.object_list:
+        sum_word_set , sum_phrase_set, sum_total_words = set(), set(), 0
+        # get all lessons in course
+        lessons_in_course = course_obj.lessons.all()
+
         for lesson_obj in lessons_in_course:
             word_set, phrase_set, total_words = get_lesson_sets(lesson_obj, list_all_phrases)
             sum_word_set = sum_word_set | word_set
             sum_phrase_set = sum_phrase_set | phrase_set
             sum_total_words += total_words
 
-        number_lessons = lessons_in_course.count() 
+        # get number of lessons in course
+        number_lessons = course_obj.num_lessons
         number_newwords, number_lingq, number_knownwords, newword_percents = caculate_specification(sum_word_set, sum_phrase_set, status_word_dict, status_phrase_dict)
 
         cousre_img_url = None
         if course_obj.course_img_file:
             cousre_img_url = request.build_absolute_uri(course_obj.course_img_file.url)
+
         dataCourseCards.append({
             # "imgUrl" : course_obj.course_img_file.url,
             "imgUrl" : cousre_img_url,  
@@ -153,9 +198,16 @@ def get_data_cards(request):
         })
 
     return JsonResponse({
-        "dataLessonCards" : dataLessonCards,
-        "dataCourseCards" : dataCourseCards
-    })
+        "dataCourseCards" : dataCourseCards,
+        "pagination": {
+            "page": courses_page.number,
+            "pageSize": page_size,
+            "totalPages": courses_page.paginator.num_pages,
+            "hasNext": courses_page.has_next(),
+            "hasPrevious": courses_page.has_previous(),
+            "totalNumberCourses": courses_page.paginator.count}
+    }, status = 200)
+
 
 
 @csrf_exempt
@@ -323,5 +375,4 @@ def calculate_progress_data(request):
 
     return JsonResponse( data_progress,safe=False, status = 200)
     
-
 

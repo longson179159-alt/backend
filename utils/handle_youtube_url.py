@@ -123,7 +123,8 @@ def get_timestamp(url):
         captions = webvtt.read(vtt_files[0])
         list_timestamp, youtube_list_subtexts = get_subtexts_and_timestamp(captions)
 
-    return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip().replace(" ", "_")
+    # return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip().replace(" ", "_")
+    return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip()
     
 
 
@@ -145,10 +146,12 @@ def get_thumbnail_url(url):
         # We are not downloading anything
         "skip_download": True,
     }
-
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
         return info.get("thumbnail")
+    
+def get_thumbnail_from_youtube_id(youtube_id):
+    return f"https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg"
 
 if __name__ == "__main__":
     url = "https://www.youtube.com/watch?v=ePMDcfFO9cw"
