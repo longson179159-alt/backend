@@ -127,7 +127,7 @@ def upload_lesson_file(instance, filename):
     return f"{instance.course.user.username}/{filename}"
 
 class Lessons(models.Model):
-    course = models.ForeignKey(Courses, on_delete=models.CASCADE)
+    course = models.ForeignKey(Courses, on_delete=models.CASCADE, related_name='lessons')
 
     system_lesson = models.ForeignKey(
         SystemLessons,

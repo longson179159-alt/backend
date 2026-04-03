@@ -175,7 +175,7 @@ def create_youtube_lesson(request):
             subtext = youtube_list_subtexts[0].get('text')
             list_ref, list_id = get_lists_from_text(subtext)
             json_dict = {'list_ref': list_ref, 'list_id': list_id}
-            text_file_bytes = json.dumps(json_dict, ensure_ascii= False).encode("utf-8")
+            text_file_bytes = json.dumps(json_dict, ensure_ascii= False, indent=2).encode("utf-8")
             text_file = ContentFile(text_file_bytes)
             
             timestamp_file_name = youtube_id + "_timestamp" + ".json"
@@ -205,10 +205,10 @@ def create_youtube_lesson(request):
 
                 list_ref, list_id = get_lists_from_text(subtext)
                 json_dict = {'list_ref' : list_ref, 'list_id': list_id}
-                text_file_bytes = json.dumps(json_dict, ensure_ascii=False).encode('utf-8')
+                text_file_bytes = json.dumps(json_dict, ensure_ascii=False, indent=2).encode('utf-8')
                 text_file = ContentFile(text_file_bytes)
 
-                list_timestamp_bytes = json.dumps(list_timestamp, ensure_ascii=False).encode('utf-8')
+                list_timestamp_bytes = json.dumps(list_timestamp, ensure_ascii=False, indent=2).encode('utf-8')
                 timestamp_file = ContentFile(list_timestamp_bytes)
 
                 lesson_obj = Lessons.objects.create(

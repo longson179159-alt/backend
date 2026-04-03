@@ -6,9 +6,10 @@ import json
 from django.utils import timezone
 import traceback
 from django.db import transaction
+from utils.extract_data import clean_word, is_valid_word, is_valid_phrase
 
 def is_word(text):
-    listWords = text.split(" ")
+    listWords = text.split()
     if len(listWords) == 1:
         return True
     else:
@@ -39,7 +40,9 @@ def update_word(request):
             return JsonResponse({"message": "Text is required"}, status=400)
 
         if is_word(text): 
-
+            # check if it is a valid word, if not return error message
+            if not is_valid_word(clean_word(text)):
+                return JsonResponse({'message': "Invalid word"}, status=400)
             if status == 6:
                 return JsonResponse({'message': "Can't add a word with status as 6"}, status = 401)
             word, created = Words.objects.get_or_create(user = request.user, word_key = text, defaults= {"word_status" : status})
@@ -70,6 +73,9 @@ def update_word(request):
                     word.change_to_learn_at = timezone.now()
                 word.save()
         else:
+            # check if it is a valid phrase, if not return error messageif
+            if not is_valid_phrase(text):
+                return JsonResponse({'message': "Invalid phrase"}, status=400)
             if status == 0:
                 Phrase_Meanings.objects.filter(phrase__user = request.user, phrase__phrase = text).delete()
                 Phrase_Tags.objects.filter(phrase__user = request.user, phrase__phrase = text).delete()

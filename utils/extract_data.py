@@ -29,6 +29,18 @@ def clean_word(word: str) -> str:
     w = re.sub(r"[^\w\s']", "", w)
     return w
 
+# check if cleaned_word include special charater like @, & .. that means it include only alphabets or '-' or ''', or there is no alphabet charater if yes retrun Fase
+# def is_valid_word(cleaned_word):
+#     return all(c.isalpha() or c == '-' for c in cleaned_word) and any(c.isalpha() for c in cleaned_word)
+def is_valid_word(cleaned_word):
+    return all(c.isalpha() or c in ['-', "'"] for c in cleaned_word) and any(c.isalpha() for c in cleaned_word)
+
+
+def is_valid_phrase(phrase):
+    words_list = phrase.split()
+    return all(is_valid_word(clean_word(word)) for word in words_list)
+
+
 def get_subtexts(text, limit=2000):
     # Normalize newlines and trim whitespace
     t = text.replace('\r\n', '\n').replace('\r', '\n').strip()
@@ -46,7 +58,7 @@ def get_subtexts(text, limit=2000):
             current_value_subtexts = para
             number_words_of_current_subtext = len(para.split())
         else:
-            current_value_subtexts.append(para)
+            current_value_subtexts += '\n' + para
             number_words_of_current_subtext += number_of_words_in_para
 
     list_subtexts.append(current_value_subtexts)

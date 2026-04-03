@@ -6,7 +6,7 @@ from docx import Document
 import chardet
 import io
 from core.models import Words, Phrases
-from utils.extract_data import clean_word
+from utils.extract_data import clean_word, is_valid_word
 import json
 from utils.paths import BASE_DIR
 import os
@@ -52,7 +52,6 @@ def group_by_para_or_sentence(timestamp_word_level, group_type):
 
     return words_in_the_same_type
 
-# def check_phrase_in_sentence(list_sentence, list_phrase):
 
 
 def create_lesson(request, list_ref, list_id):
@@ -67,10 +66,18 @@ def create_lesson(request, list_ref, list_id):
     
     # ---------------GET CORE DATA--------------
     for  word_idx, item in enumerate(list_id):
+        # caculate status if it is not valid word, set status to 0
+        clean_word_item = clean_word(item[0])
+        if not is_valid_word(clean_word_item):
+            word_status = 0
+        else:
+            word_status = status_word_dict.get(clean_word_item, 6)
+        
+
         list_words_in_lesson.append({
             "word" : item[0],
             "cleaned": list_ref[word_idx],
-            "status" : status_word_dict.get(clean_word(item[0]), 6),
+            "status" : word_status,
             'w_idx' : word_idx,
             "p_idx" : item[1],
             "s_idx" : item[2],

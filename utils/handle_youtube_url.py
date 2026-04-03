@@ -14,19 +14,61 @@ import tempfile
 import os
 
 import glob
+
+import html
  
 # from extract_data import get_lists_from_text
 
-
 def convert_time_stamp(time):
-    hour_minute_second= [float(t) for  t in time.split(":")]
-    seconds = hour_minute_second[0]*3600 + hour_minute_second[1]*60 + hour_minute_second[2]
-    # return round(seconds, 2)
-    return seconds
+    parts= [float(t) for  t in time.split(":")]
+    # seconds = hour_minute_second[0]*3600 + hour_minute_second[1]*60 + hour_minute_second[2]
+    if len(parts) == 3:
+        return round(parts[0] * 3600 + parts[1] * 60 + parts[2], 2)
+    if len(parts) == 2:
+        return round(parts[0] * 60 + parts[1], 2)
+
+    return 0
 
 def convert_text(text):
-    text = text.replace("\n", " ")
+    # 1. Fix HTML entities like &gt; to >
+    text = html.unescape(text)
+    # 2. Remove speaker change symbols (>>)
+    text = text.replace(">>", "")
+    # 3. Clean up whitespace
+    text = text.replace("\n", " ").strip()
     return text
+
+def depulicate_subtitles(captions):
+    list_time_stamp = []
+    clean_lines = []
+    last_line = ""
+    for c in captions:
+        text_norm = convert_text(c.text)
+
+        # subtitles_lines.append(text_norm)
+        
+        if not text_norm:
+            continue
+        if text_norm == last_line:
+            continue
+        if last_line and text_norm.startswith(last_line):
+            clean_lines[-1] = text_norm
+            list_time_stamp[-1]['end'] = convert_time_stamp(c.end)
+            list_time_stamp[-1]['text'] = text_norm
+        else:
+            clean_lines.append(text_norm)
+            list_time_stamp.append({
+                "start": convert_time_stamp(c.start),
+                "end": convert_time_stamp(c.end),
+                "text": text_norm
+            })
+        
+        last_line = text_norm
+
+    subtitles_text = "\n".join(clean_lines)
+    
+    return subtitles_text
+
 
 def get_subtexts_and_timestamp(caption):
     list_time_stamp = []
@@ -78,18 +120,22 @@ def get_subtexts_and_timestamp(caption):
     return list_time_stamp, youtube_list_subtexts
 
 
+# To get the professional (manual) subtitles when they exist,
+# and strictly fall back to the auto-generated ones if they don't,
+# the most reliable method using your current approach is to execute yt-dlp in a two-step process.
+
+
 
 def get_timestamp(url):
     # Create a temporary directory
     # Everything inside this folder will be deleted automatically
     with tempfile.TemporaryDirectory() as tmpdir:
-        
+        info = None
+        vtt_files = []
         chosen_lang = "en"
         # yt-dlp configuration options
-        ydl_opts = {
+        base_opts  = {
             "skip_download": True,          # Do NOT download the video
-            "writesubtitles": True,         # Allow subtitle download
-            "writeautomaticsub": True,      # Allow auto-generated subtitles
             "subtitlesformat": "vtt",       # Force VTT format (important)
             "quiet": True,                  # Reduce console noise
             "no_warnings": True,
@@ -109,19 +155,40 @@ def get_timestamp(url):
             "subtitleslangs": [chosen_lang],
             "outtmpl": os.path.join(tmpdir, "%(id)s.%(lang)s.%(ext)s"),
         }
-        with YoutubeDL(ydl_opts) as ydl:
-            # Extract metadata AND download subtitles (because download=True)
 
-            info = ydl.extract_info(url, download=True)      
-        # Build the full path to the English VTT subtitle file
-        # Example: C:/Temp/.../ePMDcfFO9cw.en.vtt
-        # Find the actual VTT file yt-dlp created
-        vtt_files = glob.glob(os.path.join(tmpdir, "*.vtt"))
-        if not vtt_files:
-            raise FileNotFoundError("No VTT subtitle file found")
+        try:
+            ydl_opts = {
+                **base_opts,
+                "writesubtitles": True,        # Try to download manual subtitles first
+                "writeautomaticsub": False,     # Do NOT download auto-generated subtitles in this step
+            }  
+
+            with YoutubeDL(ydl_opts) as ydl:
+                # Extract metadata AND download subtitles (because download=True)
+                info = ydl.extract_info(url, download=True)  
+            vtt_files = glob.glob(os.path.join(tmpdir, "*.vtt"))
+            if vtt_files:
+                print("Professional subtitles found and downloaded.")
+            else:
+                ydl_opts = {
+                    **base_opts,
+                    "writesubtitles": False,       # Do NOT download manual subtitles in this step
+                    "writeautomaticsub": True,     # Try to download auto-generated subtitles
+                }
+
+                with YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                vtt_files = glob.glob(os.path.join(tmpdir, "*.vtt"))
+                if not vtt_files:
+                    raise FileNotFoundError("No VTT subtitle file found")
+                print("No professional subtitles found. Auto-generated subtitles downloaded.")
+
+        except Exception as e:
+            print(f"Error downloading subtitles: {e}")
 
         captions = webvtt.read(vtt_files[0])
         list_timestamp, youtube_list_subtexts = get_subtexts_and_timestamp(captions)
+        # list_timestamp, youtube_list_subtexts = get_subtexts_and_timestamp(captions)
 
     # return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip().replace(" ", "_")
     return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip()
@@ -132,16 +199,6 @@ def get_thumbnail_url(url):
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
-
-        # 🔴 Critical for AWS
-        # "cookiefile": "/home/ec2-user/cookies.txt",
-        # ✅ CORRECT FORMAT FOR PYTHON
-        # "js_runtimes": {
-        #     "node": {
-        #         "path": "/usr/bin/node"
-        #     }
-        # },
-
 
         # We are not downloading anything
         "skip_download": True,
@@ -160,5 +217,4 @@ if __name__ == "__main__":
     print("title", title)
     with open(f"youtube.json", "w", encoding="utf-8") as f:
         json.dump(list_time_stamp, f, indent=2, ensure_ascii=False)
-
 
