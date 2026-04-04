@@ -16,6 +16,8 @@ import os
 import glob
 
 import html
+
+from django.conf import settings
  
 # from extract_data import get_lists_from_text
 
@@ -143,7 +145,7 @@ def get_timestamp(url):
             # Save subtitles inside the temp folder using video ID as filename
             # Example: <tmpdir>/ePMDcfFO9cw.en.vtt
 
-                    # 🔴 CRITICAL FIXES
+                
             # "cookiefile": "/home/ec2-user/cookies.txt",
             # ✅ CORRECT FORMAT FOR PYTHON
             # "js_runtimes": {
@@ -155,6 +157,15 @@ def get_timestamp(url):
             "subtitleslangs": [chosen_lang],
             "outtmpl": os.path.join(tmpdir, "%(id)s.%(lang)s.%(ext)s"),
         }
+
+        if settings.IS_PROD:
+            base_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
+            base_opts["js_runtimes"] = {
+                "node": {
+                    "path": "/usr/bin/node"
+                }
+            }
+
 
         try:
             ydl_opts = {

@@ -19,23 +19,39 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+APP_ENV = os.environ.get("APP_ENV", "dev").lower()
+IS_PROD = APP_ENV == "prod"
+
+
+def _split_csv(value):
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _require_env(name):
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"{name} is required when APP_ENV=prod")
+    return value
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
-# if not SECRET_KEY:
-#     raise RuntimeError("DJANGO_SECRET_KEY is not set")
-
-
-# # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&&fqzw(filz3f4hnetm@kb4%*h(w3!b%5dd9xrn+xaeo7cr-lp'
+if IS_PROD:
+    SECRET_KEY = _require_env("DJANGO_SECRET_KEY")
+else:
+    SECRET_KEY = os.environ.get(
+        "DJANGO_SECRET_KEY",
+        "django-insecure-&&fqzw(filz3f4hnetm@kb4%*h(w3!b%5dd9xrn+xaeo7cr-lp",
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = not IS_PROD
 
-ALLOWED_HOSTS = []
-# ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
+if IS_PROD:
+    ALLOWED_HOSTS = _split_csv(_require_env("DJANGO_ALLOWED_HOSTS"))
+else:
+    ALLOWED_HOSTS = _split_csv(os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost"))
 
 
 
@@ -88,29 +104,30 @@ WSGI_APPLICATION = 'lingq.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': "lingq",
-        'USER': "root",
-        "PASSWORD" : "Ssql1591002",
-        "HOST" : "localhost" ,
-        "PORT" : "3306" ,
+if IS_PROD:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": _require_env("DB_NAME"),
+            "USER": _require_env("DB_USER"),
+            "PASSWORD": _require_env("DB_PASSWORD"),
+            "HOST": _require_env("DB_HOST"),
+            "PORT": os.environ.get("DB_PORT", "3306"),
+            "OPTIONS": {"charset": "utf8mb4"},
+        }
     }
-}
-
-
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.mysql",
-#         "NAME": os.environ.get("DB_NAME"),
-#         "USER": os.environ.get("DB_USER"),
-#         "PASSWORD": os.environ.get("DB_PASSWORD"),
-#         "HOST": os.environ.get("DB_HOST"),
-#         "PORT": os.environ.get("DB_PORT", "3306"),
-#         "OPTIONS": {"charset": "utf8mb4"},
-#     }
-# }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.environ.get("DB_NAME", "lingq"),
+            "USER": os.environ.get("DB_USER", "root"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "Ssql1591002"),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "3306"),
+            "OPTIONS": {"charset": "utf8mb4"},
+        }
+    }
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -158,34 +175,31 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # your Nuxt frontend
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://3.26.146.123:3000",
     "https://lingq-home-page.vercel.app",
-
 ]
 
+CORS_ALLOWED_ORIGINS = _split_csv(
+    os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS")
+) or DEFAULT_ALLOWED_ORIGINS
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",  # your Nuxt frontend
-    "http://127.0.0.1:3000",
-    "http://3.26.146.123:3000",
-     "https://lingq-home-page.vercel.app"
-]
+CSRF_TRUSTED_ORIGINS = _split_csv(
+    os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS")
+) or DEFAULT_ALLOWED_ORIGINS
 
-
-# SESSION_COOKIE_SAMESITE = "None"
-# SESSION_COOKIE_SECURE = True
-
-# CSRF_COOKIE_SAMESITE = "None"
-# CSRF_COOKIE_SECURE = True
-
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
-
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+if IS_PROD:
+    SESSION_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 
 
@@ -193,14 +207,5 @@ CSRF_COOKIE_SECURE = False
 CORS_ALLOW_CREDENTIALS = True
 
 
-# import sys
-# if 'runserver' in sys.argv and os.environ.get('RUN_MAIN') != 'true':
-#     from pprint import pprint
-#     print("\n[DATABASE CONFIG]")
-#     pprint(DATABASES['default'])
 
 
-# SWTTCH TO EC2
-# 1. change secret_key, allowed_host, database, and debug
-# 2. comment TEMPLATES and WSGI_APPLICATION
-# 3. change youtube ydl_opts
