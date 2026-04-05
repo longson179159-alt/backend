@@ -19,6 +19,8 @@ import html
 
 from django.conf import settings
  
+
+import traceback
 # from extract_data import get_lists_from_text
 
 def convert_time_stamp(time):
@@ -40,9 +42,11 @@ def convert_text(text):
     text = text.replace("\n", " ").strip()
     return text
 
-def depulicate_subtitles(captions):
-    list_time_stamp = []
-    clean_lines = []
+def get_timestamp_by_deduplicating(captions):
+    # this function get timestamp by deduplicatiing the subtitle text
+
+    list_global_timestamp = []
+
     last_line = ""
     for c in captions:
         text_norm = convert_text(c.text)
@@ -54,12 +58,12 @@ def depulicate_subtitles(captions):
         if text_norm == last_line:
             continue
         if last_line and text_norm.startswith(last_line):
-            clean_lines[-1] = text_norm
-            list_time_stamp[-1]['end'] = convert_time_stamp(c.end)
-            list_time_stamp[-1]['text'] = text_norm
+
+            list_global_timestamp[-1]['end'] = convert_time_stamp(c.end)
+            list_global_timestamp[-1]['text'] = text_norm
         else:
-            clean_lines.append(text_norm)
-            list_time_stamp.append({
+
+            list_global_timestamp.append({
                 "start": convert_time_stamp(c.start),
                 "end": convert_time_stamp(c.end),
                 "text": text_norm
@@ -67,59 +71,108 @@ def depulicate_subtitles(captions):
         
         last_line = text_norm
 
-    subtitles_text = "\n".join(clean_lines)
     
-    return subtitles_text
+    list_global_timestamp = [{**item, 'sIdx': idx} for idx, item in enumerate(list_global_timestamp)]
+    return  list_global_timestamp
 
 
-def get_subtexts_and_timestamp(caption):
-    list_time_stamp = []
-    current_subtext_lines = []
-    youtube_list_subtexts = []
-    current_lesson_time_stamp = []
-    index_current_chuck = 0
-    max_time_current_chuck = 15 * 60 * (index_current_chuck +1)
-    start_current_chuck = convert_time_stamp(caption[0].start)
 
-    for c in caption:
-        line_text = convert_text(c.text)
 
-        if convert_time_stamp(c.end) <= max_time_current_chuck:
-            current_subtext_lines.append(line_text)
-            current_lesson_time_stamp.append({
-                'start': convert_time_stamp(c.start),
-                'end': convert_time_stamp(c.end),
-                'text' : line_text
-            })
-        else:
-            youtube_list_subtexts.append({
-                'start': start_current_chuck,
-                'text': '\n'.join(current_subtext_lines)
-            })
 
-            list_time_stamp.append(current_lesson_time_stamp)
+# def get_subtexts_and_timestamp(caption):
+#     list_time_stamp = []
+#     current_subtext_lines = []
+#     youtube_list_subtexts = []
+#     current_lesson_time_stamp = []
+#     index_current_chuck = 0
+#     max_time_current_chuck = 15 * 60 * (index_current_chuck +1)
+#     start_current_chuck = convert_time_stamp(caption[0].start)
 
-            current_subtext_lines = [line_text]
-            current_lesson_time_stamp = [{
-                'start': convert_time_stamp(c.start),
-                'end': convert_time_stamp(c.end),
-                'text': line_text
-            }]
-            start_current_chuck = convert_time_stamp(c.start)
-            index_current_chuck += 1
-            max_time_current_chuck = 15 * 60 * (index_current_chuck +1)
+#     for c in caption:
+#         line_text = convert_text(c.text)
+
+#         if convert_time_stamp(c.end) <= max_time_current_chuck:
+#             current_subtext_lines.append(line_text)
+#             current_lesson_time_stamp.append({
+#                 'start': convert_time_stamp(c.start),
+#                 'end': convert_time_stamp(c.end),
+#                 'text' : line_text
+#             })
+#         else:
+#             youtube_list_subtexts.append({
+#                 'start': start_current_chuck,
+#                 'text': '\n'.join(current_subtext_lines)
+#             })
+
+#             list_time_stamp.append(current_lesson_time_stamp)
+
+#             current_subtext_lines = [line_text]
+#             current_lesson_time_stamp = [{
+#                 'start': convert_time_stamp(c.start),
+#                 'end': convert_time_stamp(c.end),
+#                 'text': line_text
+#             }]
+#             start_current_chuck = convert_time_stamp(c.start)
+#             index_current_chuck += 1
+#             max_time_current_chuck = 15 * 60 * (index_current_chuck +1)
 
          
     
+#     if current_subtext_lines:
+#         youtube_list_subtexts.append({
+#             'start': start_current_chuck,
+#             'text': '\n'.join(current_subtext_lines)
+#         })
+
+#         list_time_stamp.append(current_lesson_time_stamp)
+
+#     return list_time_stamp, youtube_list_subtexts
+def get_subtexts_and_subtimestamp(list_timestamp, max_minutes = 15):
+    # hard code her for check youtube 15 minutes
+
+    youtube_list_subtexts = []
+    index_current_chuck = 0
+    current_subtext_lines = []
+    end_time_current_chuck = max_minutes * 60 * (index_current_chuck + 1)
+    start_current_chuck = list_timestamp[0]['start']
+
+    youtube_list_subtiemstamps = []
+    current_lesson_timestamp = []
+
+    for item in list_timestamp:
+        if item['end'] <= end_time_current_chuck:
+            current_subtext_lines.append(item['text'])
+            current_lesson_timestamp.append(item)
+        else:
+            youtube_list_subtexts.append({
+                'text': '\n'.join(current_subtext_lines),
+                'start': start_current_chuck
+            })
+
+            youtube_list_subtiemstamps.append(current_lesson_timestamp)
+
+            current_subtext_lines = [item['text']]
+            current_lesson_timestamp = [item]
+            index_current_chuck += 1
+            start_current_chuck = item['start']
+            end_time_current_chuck = max_minutes * 60 * (index_current_chuck + 1)
+
+            current_lesson_timestamp
+
+
     if current_subtext_lines:
         youtube_list_subtexts.append({
-            'start': start_current_chuck,
-            'text': '\n'.join(current_subtext_lines)
-        })
+            'text': '\n'.join(current_subtext_lines),
+            'start': start_current_chuck
+        })     
 
-        list_time_stamp.append(current_lesson_time_stamp)
 
-    return list_time_stamp, youtube_list_subtexts
+        youtube_list_subtiemstamps.append(current_lesson_timestamp)
+
+    return youtube_list_subtexts, youtube_list_subtiemstamps
+
+
+
 
 
 # To get the professional (manual) subtitles when they exist,
@@ -141,19 +194,6 @@ def get_timestamp(url):
             "subtitlesformat": "vtt",       # Force VTT format (important)
             "quiet": True,                  # Reduce console noise
             "no_warnings": True,
-            # Output template:
-            # Save subtitles inside the temp folder using video ID as filename
-            # Example: <tmpdir>/ePMDcfFO9cw.en.vtt
-
-                
-            # "cookiefile": "/home/ec2-user/cookies.txt",
-            # ✅ CORRECT FORMAT FOR PYTHON
-            # "js_runtimes": {
-            #     "node": {
-            #         "path": "/usr/bin/node"
-            #     }
-            # },
-
             "subtitleslangs": [chosen_lang],
             "outtmpl": os.path.join(tmpdir, "%(id)s.%(lang)s.%(ext)s"),
         }
@@ -195,28 +235,41 @@ def get_timestamp(url):
                 print("No professional subtitles found. Auto-generated subtitles downloaded.")
 
         except Exception as e:
+            traceback.print_exc()
             print(f"Error downloading subtitles: {e}")
 
         captions = webvtt.read(vtt_files[0])
-        list_timestamp, youtube_list_subtexts = get_subtexts_and_timestamp(captions)
+        list_global_timestamp = get_timestamp_by_deduplicating(captions)
+
+        if not list_global_timestamp:
+            raise ValueError("No valid subtitles found after processing VTT file.")
+        youtube_list_subtexts, youtube_list_subtiemstamps = get_subtexts_and_subtimestamp(list_global_timestamp)
         # list_timestamp, youtube_list_subtexts = get_subtexts_and_timestamp(captions)
 
     # return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip().replace(" ", "_")
-    return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip()
+    return youtube_list_subtiemstamps, youtube_list_subtexts,  info['id'], info.get("title").strip()
     
 
 
-def get_thumbnail_url(url):
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
+# def get_thumbnail_url(url):
+#     ydl_opts = {
+#         "quiet": True,
+#         "no_warnings": True,
 
-        # We are not downloading anything
-        "skip_download": True,
-    }
-    with YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        return info.get("thumbnail")
+#         # We are not downloading anything
+#         "skip_download": True,
+#     }
+
+#     if settings.IS_PROD:
+#             ydl_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
+#             base_opts["js_runtimes"] = {
+#                 "node": {
+#                     "path": "/usr/bin/node"
+#                 }
+#             }
+#     with YoutubeDL(ydl_opts) as ydl:
+#         info = ydl.extract_info(url, download=False)
+#         return info.get("thumbnail")
     
 def get_thumbnail_from_youtube_id(youtube_id):
     return f"https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg"
@@ -224,7 +277,7 @@ def get_thumbnail_from_youtube_id(youtube_id):
 if __name__ == "__main__":
     url = "https://www.youtube.com/watch?v=ePMDcfFO9cw"
 
-    list_time_stamp , json_dict, id, title = get_timestamp(url)
+    list_time_stamp , json_dict, youtube_list_subtiemstamps, id, title = get_timestamp(url)
     print("title", title)
     with open(f"youtube.json", "w", encoding="utf-8") as f:
         json.dump(list_time_stamp, f, indent=2, ensure_ascii=False)

@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from utils.handle_upload_text_file import create_lesson
-from utils.handle_youtube_url import get_timestamp, get_thumbnail_url
+from utils.handle_youtube_url import get_timestamp
 from utils.extract_data import get_lists_from_text, get_subtexts, validate_file_size
 from utils.handle_upload_text_file import convert_input_to_text
 from django.views.decorators.csrf import csrf_exempt
@@ -110,19 +110,6 @@ def delete_lesson(request):
         return JsonResponse({'message': f'There is a problem with deleting {lesson_name} lesson'}, status = 404)
 
 
-    
-
-def save_thumbnail_to_lesson(lesson, thumbnail_url):
-    response = requests.get(thumbnail_url, timeout=10)
-    response.raise_for_status()
-    path = urlparse(thumbnail_url).path
-    ext = os.path.splitext(path)[1] or ".jpg"
-    img_file_name = lesson.lesson_name + "_thumbnail" + ext
-    lesson.lesson_img_file.save(
-        img_file_name,
-        ContentFile(response.content),
-        save = True
-    )
 
 def generate_unique_lesson_name(course_obj, basename):
     if not Lessons.objects.filter(course = course_obj, lesson_name = basename).exists():
@@ -153,7 +140,7 @@ def create_youtube_lesson(request):
  
     # ---------create new lesson----------
     try:
-        youtube_list_timestamp, youtube_list_subtexts, youtube_id, youtube_title = get_timestamp(youtube_url)
+        youtube_list_subtiemstamps, youtube_list_subtexts, youtube_id, youtube_title = get_timestamp(youtube_url)
         
     except Exception as e:
         print("Exception occurred: ", e)
@@ -167,11 +154,10 @@ def create_youtube_lesson(request):
     if Lessons.objects.filter(course  = course, lesson_name = lesson_name).exists():
         return JsonResponse({"message": f"lesson {lesson_name} already exists!"}, status = 409 )
     try:
-        thumbnail = get_thumbnail_url(youtube_url)
 
         if len(youtube_list_subtexts) == 1:
             text_file_name = youtube_id + ".json"
-            list_timestamp = youtube_list_timestamp[0]
+            list_timestamp = youtube_list_subtiemstamps[0]
             subtext = youtube_list_subtexts[0].get('text')
             list_ref, list_id = get_lists_from_text(subtext)
             json_dict = {'list_ref': list_ref, 'list_id': list_id}
@@ -182,13 +168,10 @@ def create_youtube_lesson(request):
             timestamp_file_bytes = json.dumps(list_timestamp, indent=2, ensure_ascii=False).encode("utf-8")
             timestamp_file = ContentFile(timestamp_file_bytes)
 
-            lesson = Lessons.objects.create(course = course, lesson_name = lesson_name, youtube_id = youtube_id, youtube_start_time = youtube_list_subtexts[0].get('start'), last_open_at = timezone.now())
+            lesson = Lessons.objects.create(course = course, lesson_name = lesson_name, youtube_id = youtube_id, youtube_start_time = youtube_list_subtexts[0].get('start'), last_open_at = timezone.now(), has_timestamp = True)
             lesson.text_file.save(text_file_name, text_file, save = True)
             lesson.timestamp_file.save(timestamp_file_name, timestamp_file, save = True)
             
-            if thumbnail:
-                save_thumbnail_to_lesson(lesson, thumbnail)
-
         
         else:
             for idx, item in enumerate(youtube_list_subtexts):
@@ -198,7 +181,7 @@ def create_youtube_lesson(request):
                 else:
                     basename = f'{lesson_name} {idx +1}'
                     sub_lesson_name = generate_unique_lesson_name(course, basename)
-                list_timestamp = youtube_list_timestamp[idx]
+                list_timestamp = youtube_list_subtiemstamps[idx]
                 subtext = item.get('text')
                 text_file_name = f'{youtube_id}_{idx}.json'
                 timestamp_file_name = f'{youtube_id}_{idx}_timestamp.json'
@@ -216,14 +199,13 @@ def create_youtube_lesson(request):
                     lesson_name = sub_lesson_name,
                     youtube_id = youtube_id, 
                     youtube_start_time = youtube_start_time,
-                    last_open_at = timezone.now()
+                    last_open_at = timezone.now(),
+                    has_timestamp = True
+
                 )
 
                 lesson_obj.text_file.save(text_file_name, text_file, save = True)
                 lesson_obj.timestamp_file.save(timestamp_file_name,timestamp_file, save= True )
-
-                if thumbnail:
-                    save_thumbnail_to_lesson(lesson_obj, thumbnail)
 
         course.last_open_at = timezone.now()
         course.save(update_fields=['last_open_at'])

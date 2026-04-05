@@ -267,6 +267,8 @@ def show_course_infos(request):
         lesson_img_url = None
         if lesson_obj.lesson_img_file:
             lesson_img_url = request.build_absolute_uri(lesson_obj.lesson_img_file.url)
+        elif lesson_obj.youtube_id:
+            lesson_img_url = get_thumbnail_from_youtube_id(lesson_obj.youtube_id)
         dataLessonCards.append ({
             "imgUrl": lesson_img_url,
             "courseName": lesson_obj.course.course_name,
@@ -285,6 +287,7 @@ def show_course_infos(request):
     course_img_url = None
     if course_obj.course_img_file:
         course_img_url= request.build_absolute_uri(course_obj.course_img_file.url)
+
     dataCourseCard= {
             # "imgUrl" : course_obj.course_img_file.url,
             "imgUrl" : course_img_url,  

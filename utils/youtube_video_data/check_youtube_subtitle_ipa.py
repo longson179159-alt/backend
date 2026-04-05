@@ -138,6 +138,7 @@ def check_youtube_created_text(url):
 if __name__ == "__main__":
     # url = "https://www.youtube.com/watch?v=rIoOSCcIkr8"
     # https://www.youtube.com/watch?v=pAeoJVXrZo4
+    # https://www.youtube.com/watch?v=d9NZS2P_Va4
     url = input("Enter YouTube URL: ")
     subtitles_text, list_timestamp = check_youtube_created_text(url)
 
