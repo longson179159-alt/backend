@@ -206,6 +206,7 @@ def get_timestamp(url):
                 }
             }
 
+        print("base_opts:", base_opts)
 
         try:
             ydl_opts = {
