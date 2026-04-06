@@ -250,28 +250,7 @@ def get_timestamp(url):
     # return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip().replace(" ", "_")
     return youtube_list_subtiemstamps, youtube_list_subtexts,  info['id'], info.get("title").strip()
     
-
-
-# def get_thumbnail_url(url):
-#     ydl_opts = {
-#         "quiet": True,
-#         "no_warnings": True,
-
-#         # We are not downloading anything
-#         "skip_download": True,
-#     }
-
-#     if settings.IS_PROD:
-#             ydl_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
-#             base_opts["js_runtimes"] = {
-#                 "node": {
-#                     "path": "/usr/bin/node"
-#                 }
-#             }
-#     with YoutubeDL(ydl_opts) as ydl:
-#         info = ydl.extract_info(url, download=False)
-#         return info.get("thumbnail")
-    
+ 
 def get_thumbnail_from_youtube_id(youtube_id):
     return f"https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg"
 
