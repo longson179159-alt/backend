@@ -3,12 +3,12 @@
 echo "Starting Django setup..."
 
 # 1️⃣ Remove migrations folder if exists
-if [ -d "core/migrations" ]; then
-    echo "Removing core/migrations..."
-    rm -rf core/migrations
-fi
+# if [ -d "core/migrations" ]; then
+#     echo "Removing core/migrations..."
+#     rm -rf core/migrations
+# fi
 
-source venv/bin/activate
+# source venv/bin/activate
 
 
 
