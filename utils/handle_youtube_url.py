@@ -77,56 +77,6 @@ def get_timestamp_by_deduplicating(captions):
 
 
 
-
-
-# def get_subtexts_and_timestamp(caption):
-#     list_time_stamp = []
-#     current_subtext_lines = []
-#     youtube_list_subtexts = []
-#     current_lesson_time_stamp = []
-#     index_current_chuck = 0
-#     max_time_current_chuck = 15 * 60 * (index_current_chuck +1)
-#     start_current_chuck = convert_time_stamp(caption[0].start)
-
-#     for c in caption:
-#         line_text = convert_text(c.text)
-
-#         if convert_time_stamp(c.end) <= max_time_current_chuck:
-#             current_subtext_lines.append(line_text)
-#             current_lesson_time_stamp.append({
-#                 'start': convert_time_stamp(c.start),
-#                 'end': convert_time_stamp(c.end),
-#                 'text' : line_text
-#             })
-#         else:
-#             youtube_list_subtexts.append({
-#                 'start': start_current_chuck,
-#                 'text': '\n'.join(current_subtext_lines)
-#             })
-
-#             list_time_stamp.append(current_lesson_time_stamp)
-
-#             current_subtext_lines = [line_text]
-#             current_lesson_time_stamp = [{
-#                 'start': convert_time_stamp(c.start),
-#                 'end': convert_time_stamp(c.end),
-#                 'text': line_text
-#             }]
-#             start_current_chuck = convert_time_stamp(c.start)
-#             index_current_chuck += 1
-#             max_time_current_chuck = 15 * 60 * (index_current_chuck +1)
-
-         
-    
-#     if current_subtext_lines:
-#         youtube_list_subtexts.append({
-#             'start': start_current_chuck,
-#             'text': '\n'.join(current_subtext_lines)
-#         })
-
-#         list_time_stamp.append(current_lesson_time_stamp)
-
-#     return list_time_stamp, youtube_list_subtexts
 def get_subtexts_and_subtimestamp(list_timestamp, max_minutes = 15):
     # hard code her for check youtube 15 minutes
 
@@ -199,6 +149,8 @@ def get_timestamp(url):
         }
 
         if settings.IS_PROD:
+            base_opts["remote_components"] = ["ejs:github"]
+
             base_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
             base_opts["js_runtimes"] = {
                 "node": {
@@ -206,7 +158,7 @@ def get_timestamp(url):
                 }
             }
 
-        print("base_opts:", base_opts)
+        print("base_opts:", base_opts, flush=True)
 
         try:
             ydl_opts = {
@@ -235,20 +187,18 @@ def get_timestamp(url):
                     raise FileNotFoundError("No VTT subtitle file found")
                 print("No professional subtitles found. Auto-generated subtitles downloaded.")
 
+            captions = webvtt.read(vtt_files[0])
+            list_global_timestamp = get_timestamp_by_deduplicating(captions)
+
+            if not list_global_timestamp:
+                raise ValueError("No valid subtitles found after processing VTT file.")
+            youtube_list_subtexts, youtube_list_subtiemstamps = get_subtexts_and_subtimestamp(list_global_timestamp)
+            return youtube_list_subtiemstamps, youtube_list_subtexts,  info['id'], info.get("title").strip()
         except Exception as e:
             traceback.print_exc()
             print(f"Error downloading subtitles: {e}")
 
-        captions = webvtt.read(vtt_files[0])
-        list_global_timestamp = get_timestamp_by_deduplicating(captions)
-
-        if not list_global_timestamp:
-            raise ValueError("No valid subtitles found after processing VTT file.")
-        youtube_list_subtexts, youtube_list_subtiemstamps = get_subtexts_and_subtimestamp(list_global_timestamp)
-        # list_timestamp, youtube_list_subtexts = get_subtexts_and_timestamp(captions)
-
-    # return list_timestamp, youtube_list_subtexts, info['id'], info.get("title").strip().replace(" ", "_")
-    return youtube_list_subtiemstamps, youtube_list_subtexts,  info['id'], info.get("title").strip()
+    
     
  
 def get_thumbnail_from_youtube_id(youtube_id):
