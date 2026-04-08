@@ -149,7 +149,7 @@ def get_timestamp(url):
         }
 
         if settings.IS_PROD:
-            base_opts["remote_components"] = ["ejs:github"]
+            # base_opts["remote_components"] = ["ejs:github"]
 
             base_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
             base_opts["js_runtimes"] = {
@@ -197,6 +197,7 @@ def get_timestamp(url):
         except Exception as e:
             traceback.print_exc()
             print(f"Error downloading subtitles: {e}")
+            raise ValueError(f"Failed to download subtitles for the provided YouTube URL: {url}. Error: {e}")
 
     
     
