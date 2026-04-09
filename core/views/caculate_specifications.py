@@ -103,7 +103,7 @@ def get_data_lessons_cards(request):
 
         lesson_img_url = None
         if lesson_obj.lesson_img_file:
-            lesson_img_url = request.build_absolute_uri(lesson_obj.lesson_img_file.url)
+            lesson_img_url = lesson_obj.lesson_img_file.url
         elif lesson_obj.youtube_id:
             lesson_img_url = get_thumbnail_from_youtube_id(lesson_obj.youtube_id)
 
