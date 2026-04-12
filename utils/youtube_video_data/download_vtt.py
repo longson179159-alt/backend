@@ -1,18 +1,14 @@
-import html
-import json
-from pathlib import Path
-
+from yt_dlp import YoutubeDL
 import webvtt
 
-base_dir = Path(r"C:\Users\PC\Desktop\debug")
-vtt_files = sorted(base_dir.glob("*.vtt"))
-if not vtt_files:
-    raise FileNotFoundError(f"No .vtt files found in {base_dir}")
+# get youtubetext from this url https://www.youtube.com/watch?v=rIoOSCcIkr8
 
-vtt_path = vtt_files[0]
-captions = webvtt.read(str(vtt_path))
-
-
+import os
+import glob
+import json
+import tempfile
+import traceback
+import html
 def convert_time_stamp(time):
     parts= [float(t) for  t in time.split(":")]
     # seconds = hour_minute_second[0]*3600 + hour_minute_second[1]*60 + hour_minute_second[2]
@@ -29,46 +25,121 @@ def convert_text(text):
     # 2. Remove speaker change symbols (>>)
     text = text.replace(">>", "")
     # 3. Clean up whitespace
-    # text = text.replace("\n", " ").strip()
+    text = text.replace("\n", " ").strip()
     return text
-raw_timestamp = []
-for caption in captions:
-    text_norm = convert_text(caption.text)
-    text_norm = text_norm.replace("\n", " ").strip()
-    raw_timestamp.append({
-        "start": convert_time_stamp(caption.start),
-        "end": convert_time_stamp(caption.end),
-        "text": text_norm,
-    })
-with open("raw.json", "w", encoding="utf-8") as f:
-    json.dump(raw_timestamp, f, ensure_ascii=False, indent=4)
 
 
-list_timestamp = []
-last_line = convert_text(captions[0].text)
-current_end = convert_time_stamp(captions[0].end)
-current_start = 0
-current_text = convert_text(captions[0].text)
 
-for c in captions:
+def deduplicate_subtitles(captions):
+    list_timestamp = []
+    clean_lines = []
+    last_line = ""
 
-    text_norm = convert_text(c.text)
-    last_line = text_norm
-    if not text_norm:
-        continue
-    if '\n' in text_norm :
-        current_start  = convert_time_stamp(c.start)
-    else:
-        current_end = convert_time_stamp(c.end)
-        current_text = text_norm
+    for c in captions:
+        text_norm = convert_text(c.text)
 
-        list_timestamp.append({
-            "start": current_start,
-            "end": current_end,
-            "text": current_text,
-        })
+        # subtitles_lines.append(text_norm)
+        
+        if not text_norm:
+            continue
+        if text_norm == last_line:
+            continue
+        if last_line and text_norm.startswith(last_line):
+            clean_lines[-1] = text_norm
+            list_timestamp[-1]['end'] = convert_time_stamp(c.end)
+            list_timestamp[-1]['text'] = text_norm
+        else:
+            clean_lines.append(text_norm)
+            list_timestamp.append({
+                "start": convert_time_stamp(c.start),
+                "end": convert_time_stamp(c.end),
+                "text": text_norm
+            })
+        
+        last_line = text_norm
+    
+    subtitles_text = "\n".join(clean_lines)
+    return subtitles_text, list_timestamp
+            
 
-with open("rawdata.json", "w", encoding="utf-8") as f:
-    json.dump(list_timestamp, f, ensure_ascii=False, indent=4)
+
+
+# To get the professional (manual) subtitles when they exist,
+# and strictly fall back to the auto-generated ones if they don't,
+# the most reliable method using your current approach is to execute yt-dlp in a two-step process.
+
+
+# add create time stamp in return
+def check_youtube_created_text(url):
+    # create a temporary directory to store downloaded subtitles
+    # write down vttfile to this folder
+    base_opts = {
+        "skip_download": True,
+        # "writesubtitles": True,
+        # "writeautomaticsub": True,  
+        "subtitlesformat": "vtt",
+        "quiet": True,
+        "no_warnings": True,
+        "subtitleslangs": ["en"],
+        "outtmpl": os.path.join('C:\\Users\\PC\\Desktop\\debug\\', '%(title)s.%(ext)s'),  # ← THIS IS THE KEY
+    }
+    # C:\Users\PC\Desktop\debug\check_vtt.py
+    try: 
+        # First, try to download professional subtitles
+        yld_opts = {
+            **base_opts,
+            "writesubtitles": True,
+            "writeautomaticsub": False,
+        }
+        with YoutubeDL(yld_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+        
+        vtt_files = glob.glob(os.path.join('C:\\Users\\PC\\Desktop\\debug', "*.vtt"))
+        if vtt_files:
+            print("Professional subtitles found and downloaded.")
+        # if no professional subtitles, try to download auto-generated subtitles
+        else :
+            yld_opts = {
+                **base_opts,
+                "writesubtitles": False,
+                "writeautomaticsub": True,
+            }
+            with YoutubeDL(yld_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            print("No professional subtitles found. Auto-generated subtitles downloaded.")
+        vtt_files = glob.glob(os.path.join('C:\\Users\\PC\\Desktop\\debug', "*.vtt"))
+        if not vtt_files:
+            raise FileNotFoundError("No VTT subtitle file found")
+        
+
+        captions = webvtt.read(vtt_files[0])
+    
+        subtitles_text, list_timestamp = deduplicate_subtitles(captions)
+        # subtitles_text = "\n".join(subtitles_lines)
+
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Error processing YouTube URL: {str(e)}")
+        return None, None
+        # return f"Error processing YouTube URL: {str(e)}"
+    return subtitles_text, list_timestamp
+
+
+if __name__ == "__main__":
+    # url = "https://www.youtube.com/watch?v=GV8KGcFqeLc&t=9s"
+    # https://www.youtube.com/watch?v=pAeoJVXrZo4
+    # https://www.youtube.com/watch?v=d9NZS2P_Va4
+    url = input("Enter YouTube URL: ")
+    subtitles_text, list_timestamp = check_youtube_created_text(url)
+
+    # write this text to txt file next to this script
+    with open("subtitles_text.txt", "w", encoding="utf-8") as f:
+        f.write(subtitles_text)
+
+    # write timestamp to json file
+    with open("subtitles_timestamp.json", "w", encoding="utf-8") as f:
+        json.dump(list_timestamp, f, ensure_ascii=False, indent=4)
+
+
 
 
