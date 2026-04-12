@@ -37,49 +37,60 @@ def convert_text(text):
     # 1. Fix HTML entities like &gt; to >
     text = html.unescape(text)
     # 2. Remove speaker change symbols (>>)
-    text = text.replace(">>", "")
-    # 3. Clean up whitespace
-    text = text.replace("\n", " ").strip()
+    text = text.replace(">>", "").strip()
+
     return text
 
-def get_timestamp_by_deduplicating(captions):
+def get_auto_generated_timestamp(captions):
+    if not captions:
+        raise ValueError("No captions provided to process.")
     # this function get timestamp by deduplicatiing the subtitle text
-
     list_global_timestamp = []
-
-    last_line = ""
-    for c in captions:
-        text_norm = convert_text(c.text)
-
-        # subtitles_lines.append(text_norm)
-        
-        if not text_norm:
-            continue
-        if text_norm == last_line:
-            continue
-        if last_line and text_norm.startswith(last_line):
-
-            list_global_timestamp[-1]['end'] = convert_time_stamp(c.end)
-            list_global_timestamp[-1]['text'] = text_norm
-        else:
-
-            list_global_timestamp.append({
-                "start": convert_time_stamp(c.start),
-                "end": convert_time_stamp(c.end),
-                "text": text_norm
-            })
-        
-        last_line = text_norm
+    current_end = convert_time_stamp(captions[0].end)
+    current_start = 0
+    current_text = convert_text(captions[0].text)
 
     
-    list_global_timestamp = [{**item, 'sIdx': idx} for idx, item in enumerate(list_global_timestamp)]
-    return  list_global_timestamp
+    for c in captions:
+
+        text_norm = convert_text(c.text)
+        if not text_norm:
+            continue
+        if '\n' in text_norm :
+            current_start  = convert_time_stamp(c.start)
+        else:
+            current_end = convert_time_stamp(c.end)
+            current_text = text_norm
+
+            list_global_timestamp.append({
+                "start": current_start,
+                "end": current_end,
+                "text": current_text,
+            })
+
+    return list_global_timestamp
+
+def get_professinal_timestamp(captions):
+    list_global_timestamp = []
+    for c in captions:
+        text_norm = convert_text(c.text)
+        text_norm = text_norm.replace("\n", " ").strip()
+        if not text_norm:
+            continue
+        list_global_timestamp.append({
+            "start": convert_time_stamp(c.start),
+            "end": convert_time_stamp(c.end),
+            "text": text_norm
+        })
+    return list_global_timestamp
+
 
 
 
 def get_subtexts_and_subtimestamp(list_timestamp, max_minutes = 15):
     # hard code her for check youtube 15 minutes
-
+    if not list_timestamp:
+        raise ValueError("No timestamps provided to process.")
     youtube_list_subtexts = []
     index_current_chuck = 0
     current_subtext_lines = []
@@ -135,6 +146,7 @@ def get_timestamp(url):
     # Create a temporary directory
     # Everything inside this folder will be deleted automatically
     with tempfile.TemporaryDirectory() as tmpdir:
+        list_global_timestamp = []
         info = None
         vtt_files = []
         chosen_lang = "en"
@@ -158,7 +170,7 @@ def get_timestamp(url):
                 }
             }
 
-        print("base_opts:", base_opts, flush=True)
+   
 
         try:
             ydl_opts = {
@@ -173,6 +185,8 @@ def get_timestamp(url):
             vtt_files = glob.glob(os.path.join(tmpdir, "*.vtt"))
             if vtt_files:
                 print("Professional subtitles found and downloaded.")
+                captions = webvtt.read(vtt_files[0])
+                list_global_timestamp = get_professinal_timestamp(captions)
             else:
                 ydl_opts = {
                     **base_opts,
@@ -187,8 +201,8 @@ def get_timestamp(url):
                     raise FileNotFoundError("No VTT subtitle file found")
                 print("No professional subtitles found. Auto-generated subtitles downloaded.")
 
-            captions = webvtt.read(vtt_files[0])
-            list_global_timestamp = get_timestamp_by_deduplicating(captions)
+                captions = webvtt.read(vtt_files[0])
+                list_global_timestamp = get_auto_generated_timestamp(captions)
 
             if not list_global_timestamp:
                 raise ValueError("No valid subtitles found after processing VTT file.")
@@ -206,10 +220,15 @@ def get_thumbnail_from_youtube_id(youtube_id):
     return f"https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg"
 
 if __name__ == "__main__":
-    url = "https://www.youtube.com/watch?v=ePMDcfFO9cw"
+    # url = "https://www.youtube.com/watch?v=rIoOSCcIkr8"
+    # https://www.youtube.com/watch?v=pAeoJVXrZo4
+    # https://www.youtube.com/watch?v=d9NZS2P_Va4
+    url = input("Enter YouTube URL: ")
 
-    list_time_stamp , json_dict, youtube_list_subtiemstamps, id, title = get_timestamp(url)
+    list_time_stamp , json_dict, id, title = get_timestamp(url)
     print("title", title)
     with open(f"youtube.json", "w", encoding="utf-8") as f:
         json.dump(list_time_stamp, f, indent=2, ensure_ascii=False)
+    with open(f"youtube_subtexts.json", "w", encoding="utf-8") as f:
+        json.dump(json_dict, f, indent=2, ensure_ascii=False)
 
