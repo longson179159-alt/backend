@@ -160,15 +160,15 @@ def get_timestamp(url):
             "outtmpl": os.path.join(tmpdir, "%(id)s.%(lang)s.%(ext)s"),
         }
 
-        if settings.IS_PROD:
-            # base_opts["remote_components"] = ["ejs:github"]
+        # if settings.IS_PROD:
+        #     # base_opts["remote_components"] = ["ejs:github"]
 
-            base_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
-            base_opts["js_runtimes"] = {
-                "node": {
-                    "path": "/usr/bin/node"
-                }
-            }
+        #     base_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
+        #     base_opts["js_runtimes"] = {
+        #         "node": {
+        #             "path": "/usr/bin/node"
+        #         }
+        #     }
 
    
 
