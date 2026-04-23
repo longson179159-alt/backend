@@ -158,17 +158,22 @@ def get_timestamp(url):
             "no_warnings": True,
             "subtitleslangs": [chosen_lang],
             "outtmpl": os.path.join(tmpdir, "%(id)s.%(lang)s.%(ext)s"),
+            "cookiefile": "/home/ec2-user/cookies.txt",
+            "js_runtimes": ["node:/usr/bin/node"],
+            "user_agent": "Mozilla/5.0",
+            "sleep_requests": 1,
+
         }
 
-        if settings.IS_PROD:
-            # base_opts["remote_components"] = ["ejs:github"]
+        # if settings.IS_PROD:
+        #     # base_opts["remote_components"] = ["ejs:github"]
 
-            base_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
-            base_opts["js_runtimes"] = {
-                "node": {
-                    "path": "/usr/bin/node"
-                }
-            }
+        #     base_opts["cookiefile"] = "/home/ec2-user/cookies.txt"
+        #     base_opts["js_runtimes"] = {
+        #         "node": {
+        #             "path": "/usr/bin/node"
+        #         }
+        #     }
 
    
 
