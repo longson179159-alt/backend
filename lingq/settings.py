@@ -180,6 +180,7 @@ DEFAULT_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://3.26.146.123:3000",
     "https://lingq-home-page-lkgp.vercel.app",
+    "http://localhost:5173"
 ]
 
 CORS_ALLOWED_ORIGINS = _split_csv(
