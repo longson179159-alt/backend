@@ -1,7 +1,7 @@
 from django.urls import path
 from django.contrib import admin
 # from core.views.upload_audio import upload_audio, create_timestamp
-from core.views.auth import register_user, login_user, jwt_login, jwt_refresh
+from core.views.auth import register_user, login_user, logout_user, current_user
 from core.views.create_delete_course import create_course, delete_course
 from core.views.get_create_delete_lesson import get_lesson, delete_lesson, create_youtube_lesson, create_lesson_manually
 from core.views.upload_text_and_audio import upload_text, upload_audio
@@ -16,8 +16,8 @@ urlpatterns = [
     # auth path
     path("register/", register_user, name = 'signup'),
     path("login/", login_user, name = 'login'),
-    path("jwt_login/", jwt_login, name = "jwt_login"),
-    path("jwt_refresh/", jwt_refresh, name = "jwt_refresh"),
+    path("logout/", logout_user, name = 'logout'),
+    path("me/", current_user, name = "current_user"),
 
     # couser path
     path('create_course/', create_course, name = 'create_course'),

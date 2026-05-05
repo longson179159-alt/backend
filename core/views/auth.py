@@ -1,19 +1,22 @@
 from django.http import JsonResponse
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
+
 import json
 
 
 @csrf_exempt
 def register_user(request):
-    if request.method == "POST":
+    if request.method != "POST":
+        return JsonResponse({"message" : "Invalid method"}, status = 405)
+    try:
         data = json.loads(request.body)
         email = data["email"]
         password = data["password"]
         username = email
+        if not email or not password:
+            return JsonResponse({"message" : "Email and password are required"}, status=400)
 
         if User.objects.filter(email= email).exists():
             return JsonResponse({"message" : "this account already exists"},  status=400)
@@ -24,80 +27,57 @@ def register_user(request):
             password=password
         )
         return JsonResponse({"message" : "create new account successfully"}, status=200)
-    return JsonResponse({"message" : "Invalid method"}, status = 405)
+    except Exception as e:
+        return JsonResponse({"message" : "Error creating account", "error": str(e)}, status=500)
+    
 
 
 @csrf_exempt
 def login_user(request):
-    if request.method == "POST":
+    if request.method != "POST":
+        return JsonResponse({"message" : "Invalid method"}, status=405)
+    try:
         data = json.loads(request.body)
         email = data["email"]
         password = data["password"]
+
+        if not email or not password:
+            return JsonResponse({"message" : "Email and password are required"}, status=400)
 
         user = authenticate(request, username= email, password=password)
 
         if user is not None:
             login(request, user)
-            print("current user" , request.user)
-            print("session key", request.session.session_key)
-            return JsonResponse({"message": "login successfully"})
+            return JsonResponse({"message": "login successfully"}, status=200)
         return JsonResponse({"message" : "Invalid account"}, status=401)
-    return JsonResponse({"message" : "Invalid method"}, status=405)
+    except Exception as e:
+        return JsonResponse({"message" : "Error logging in", "error": str(e)}, status=500)
+    
 
-
-@csrf_exempt
-def jwt_login(request):
+def logout_user(request):
+    print("logout_user hit", request.method, request.path, request.user)
     if request.method != "POST":
         return JsonResponse({"message": "Invalid method"}, status=405)
+    logout(request)
+    return JsonResponse({"message": "logout successfully"}, status=200)
 
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"message": "Invalid JSON body"}, status=400)
 
-    email = data.get("email", "").strip()
-    password = data.get("password", "")
+def current_user(request):
+    if request.method != "GET":
+        return JsonResponse({"message": "Invalid method"}, status=405)
 
-    if not email or not password:
-        return JsonResponse({"message": "Email and password are required"}, status=400)
+    if not request.user.is_authenticated:
+        return JsonResponse({"authenticated": False}, status=401)
 
-    # Keep same auth behavior as login_user: email is used as username.
-    user = authenticate(request, username=email, password=password)
-    if user is None:
-        return JsonResponse({"message": "Invalid account"}, status=401)
-
-    refresh = RefreshToken.for_user(user)
     return JsonResponse(
         {
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
+            "authenticated": True,
             "user": {
-                "id": user.id,
-                "email": user.email,
+                "id": request.user.id,
+                "email": request.user.email,
             },
         },
         status=200,
     )
-
-
-@csrf_exempt
-def jwt_refresh(request):
-    if request.method != "POST":
-        return JsonResponse({"message": "Invalid method"}, status=405)
-
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"message": "Invalid JSON body"}, status=400)
-
-    refresh_token = data.get("refresh", "").strip()
-    if not refresh_token:
-        return JsonResponse({"message": "Refresh token is required"}, status=400)
-
-    try:
-        refresh = RefreshToken(refresh_token)
-        return JsonResponse({"access": str(refresh.access_token)}, status=200)
-    except TokenError:
-        return JsonResponse({"message": "Invalid or expired refresh token"}, status=401)
 
 
