@@ -55,7 +55,7 @@ def login_user(request):
     
 
 def logout_user(request):
-    print("logout_user hit", request.method, request.path, request.user)
+    # print("logout_user hit", request.method, request.path, request.user)
     if request.method != "POST":
         return JsonResponse({"message": "Invalid method"}, status=405)
     logout(request)
@@ -63,12 +63,18 @@ def logout_user(request):
 
 
 def current_user(request):
+    print('cookies', request.COOKIES)
+    print('session key', request.session.session_key)
+
+    print('debug current_user hit', request.method, request.path, request.user)
     if request.method != "GET":
         return JsonResponse({"message": "Invalid method"}, status=405)
 
+    print('debug current_user user', request.user)
     if not request.user.is_authenticated:
+        print('debug current_user not authenticated')
         return JsonResponse({"authenticated": False}, status=401)
-
+    print('debug current_user authenticated')
     return JsonResponse(
         {
             "authenticated": True,
