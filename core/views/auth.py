@@ -48,6 +48,8 @@ def login_user(request):
 
         if user is not None:
             login(request, user)
+            print("after login session_key:", request.session.session_key)
+            print("session modified:", request.session.modified)
             return JsonResponse({"message": "login successfully"}, status=200)
         return JsonResponse({"message" : "Invalid account"}, status=401)
     except Exception as e:
