@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from utils.handle_upload_text_file import create_lesson
-from utils.handle_youtube_url import get_timestamp
+from utils.extention import get_subtexts_and_subtimestamp
 from utils.extract_data import get_lists_from_text, get_subtexts, validate_file_size
 from utils.handle_upload_text_file import convert_input_to_text
 from django.views.decorators.csrf import csrf_exempt
@@ -17,7 +17,7 @@ import os
 from urllib.parse import urlparse
 
 @login_required
-# @csrf_exempt
+
 def get_lesson(request):
     if request.method != "GET":
         return JsonResponse({"message" : "Invalid request!"}, status = 405)
@@ -86,7 +86,7 @@ def get_lesson(request):
     
 
 
-@csrf_exempt
+
 @login_required
 def delete_lesson(request):
     if request.method != 'POST':
@@ -121,108 +121,142 @@ def generate_unique_lesson_name(course_obj, basename):
             return new_name       
         counter += 1
 
+# Subfunciton one
+def lesson_create_textfile(lesson, textFileName, subtext):
+    list_ref, list_id = get_lists_from_text(subtext)
+    json_dict = {'list_ref': list_ref, 'list_id': list_id}
+    textFileBytes = json.dumps(json_dict, ensure_ascii=False, indent=2).encode('utf-8')
+    textFile = ContentFile(textFileBytes)
+    lesson.text_file.save(textFileName, textFile, save = True)
+
+
+def lesson_create_timestamp(lesson, timestampFileName, listTimestamp):
+    timestampFileBytes = json.dumps(
+        listTimestamp,
+        indent=2,
+        ensure_ascii=False
+    ).encode('utf-8')
+    timestampFile = ContentFile(timestampFileBytes)
+    lesson.timestamp_file.save(timestampFileName, timestampFile, save = True )
+
+
 @transaction.atomic
 @csrf_exempt
 @login_required
 def create_youtube_lesson(request):
     if request.method != "POST":
-        return JsonResponse({"message" : "Invalid request !"}, status = 405)
+        return JsonResponse({"message" : "Invalid request !"}, status = 405) 
+    
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Authentication required"}, status=401)
-    data = json.loads(request.body)
-    course_name = data.get("course_name", "default").strip()
-    youtube_url = data.get("youtube_url", "").strip()
-    lesson_name = data.get("lesson_name", "").strip()
-    # print("CONTENT_TYPE", request.content_type)
-    # print("REQUEST POST", request.POST)
-    if not course_name  or not youtube_url:
-        return JsonResponse({"message": "Missing course,  or youtube url"}, status = 400)
- 
-    # ---------create new lesson----------
-    try:
-        youtube_list_subtiemstamps, youtube_list_subtexts, youtube_id, youtube_title = get_timestamp(youtube_url)
-        
-    except Exception as e:
-        print("Exception occurred: ", e)
-        return JsonResponse({
-            "message": f"There is a error with downloading youtube subtitles : {str(e)}"
-        }, status = 500)
     
-    lesson_name = lesson_name if lesson_name else youtube_title
-    course , created = Courses.objects.get_or_create(user = request.user, course_name = course_name)
+    data = json.loads(request.body) 
+    youtubeId = data.get('youtubeId', "").strip()
+    lessonName = data.get('lessonName', "").strip()
+    courseName = data.get('courseName', "").strip()
+    youtubeGlobalTimestamp = data.get('youtubeGlobalTimestamp', [])
+
+    if not lessonName or not courseName or not youtubeId:
+        return JsonResponse({"message": "Missing required fields"}, status = 400)
+
     
-    if Lessons.objects.filter(course  = course, lesson_name = lesson_name).exists():
-        return JsonResponse({"message": f"lesson {lesson_name} already exists!"}, status = 409 )
-    try:
+    course, created = Courses.objects.get_or_create(
+        user = request.user,
+        course_name = courseName,
+        defaults= {'last_open_at': timezone.now()}
+    )
 
-        if len(youtube_list_subtexts) == 1:
-            text_file_name = youtube_id + ".json"
-            list_timestamp = youtube_list_subtiemstamps[0]
-            subtext = youtube_list_subtexts[0].get('text')
-            list_ref, list_id = get_lists_from_text(subtext)
-            json_dict = {'list_ref': list_ref, 'list_id': list_id}
-            text_file_bytes = json.dumps(json_dict, ensure_ascii= False, indent=2).encode("utf-8")
-            text_file = ContentFile(text_file_bytes)
-            
-            timestamp_file_name = youtube_id + "_timestamp" + ".json"
-            timestamp_file_bytes = json.dumps(list_timestamp, indent=2, ensure_ascii=False).encode("utf-8")
-            timestamp_file = ContentFile(timestamp_file_bytes)
-
-            lesson = Lessons.objects.create(course = course, lesson_name = lesson_name, youtube_id = youtube_id, youtube_start_time = youtube_list_subtexts[0].get('start'), last_open_at = timezone.now(), has_timestamp = True)
-            lesson.text_file.save(text_file_name, text_file, save = True)
-            lesson.timestamp_file.save(timestamp_file_name, timestamp_file, save = True)
-            
-        
-        else:
-            for idx, item in enumerate(youtube_list_subtexts):
-                youtube_start_time = item.get('start')
-                if idx ==0:
-                    sub_lesson_name = lesson_name
-                else:
-                    basename = f'{lesson_name} {idx +1}'
-                    sub_lesson_name = generate_unique_lesson_name(course, basename)
-                list_timestamp = youtube_list_subtiemstamps[idx]
-                subtext = item.get('text')
-                text_file_name = f'{youtube_id}_{idx}.json'
-                timestamp_file_name = f'{youtube_id}_{idx}_timestamp.json'
-
-                list_ref, list_id = get_lists_from_text(subtext)
-                json_dict = {'list_ref' : list_ref, 'list_id': list_id}
-                text_file_bytes = json.dumps(json_dict, ensure_ascii=False, indent=2).encode('utf-8')
-                text_file = ContentFile(text_file_bytes)
-
-                list_timestamp_bytes = json.dumps(list_timestamp, ensure_ascii=False, indent=2).encode('utf-8')
-                timestamp_file = ContentFile(list_timestamp_bytes)
-
-                lesson_obj = Lessons.objects.create(
-                    course = course,
-                    lesson_name = sub_lesson_name,
-                    youtube_id = youtube_id, 
-                    youtube_start_time = youtube_start_time,
-                    last_open_at = timezone.now(),
-                    has_timestamp = True
-
-                )
-
-                lesson_obj.text_file.save(text_file_name, text_file, save = True)
-                lesson_obj.timestamp_file.save(timestamp_file_name,timestamp_file, save= True )
-
+    if not created:
         course.last_open_at = timezone.now()
         course.save(update_fields=['last_open_at'])
-        return JsonResponse({
-                "message": "Successfully created new lesson!",
-                "lesson_name": lesson_name,
-                'course_name': course_name
-            },
-            status = 201)
-
-        
-    except Exception as e:
-        print("Exception occured: ", e)
-        traceback.print_exc()
-        return JsonResponse({'message': str(e)}, status = 500)
 
     
+    try:
+        youtubeListSubtexts, youtubeListSubtiemstamps = get_subtexts_and_subtimestamp(youtubeGlobalTimestamp, max_minutes=15)
+    except Exception as e:
+        print("Exception occurred while processing timestamps: ", e)
+        return JsonResponse({
+            "message": f"There is a error with processing youtube timestamps : {str(e)}"
+        }, status = 500)
+    
+
+    try:
+        if len(youtubeListSubtiemstamps) == 1:
+            # check and generate unique lesson name
+            lessonName = generate_unique_lesson_name(course, lessonName)
+            # create new lesson
+            lesson = Lessons.objects.create(
+                course = course,
+                lesson_name = lessonName, 
+                youtube_id = youtubeId,
+                has_timestamp = True,
+                youtube_start_time = youtubeListSubtexts[0].get('start'),
+                last_open_at = timezone.now()
+            )
+
+            # Save text file to lesson
+            textFileName = youtubeId + '.json'
+            subtext = youtubeListSubtexts[0].get('text')
+            lesson_create_textfile(lesson, textFileName, subtext)
+
+            # Save timestamp
+            listTimestamp = youtubeListSubtiemstamps[0]
+            timestampFileName = youtubeId + "_timestamp" + ".json"
+            lesson_create_timestamp(lesson, timestampFileName, listTimestamp)
+            return JsonResponse({
+                "message": f"Create lesson {lessonName} successfully!",
+                "lesson_name": lessonName,
+                "course_name": courseName
+            }, status = 200)
+        else:
+            for idx, item in enumerate(youtubeListSubtexts):
+                youtubeStartTime = item.get("start")
+                if idx == 0:
+                    subLessonName = generate_unique_lesson_name(course, lessonName)
+                    fristLessonName = subLessonName
+                else:
+                    basename = f'{lessonName} {idx + 1}'
+                    subLessonName = generate_unique_lesson_name(course, basename)
+                
+                lesson_obj = Lessons.objects.create(
+                    course = course,
+                    lesson_name = subLessonName,
+                    youtube_id = youtubeId,
+                    youtube_start_time = youtubeStartTime,
+                    has_timestamp = True,
+                    last_open_at = timezone.now()
+                )
+                
+                # Save textFile to the lesson
+                textFileName = f'{youtubeId}_{idx}.json'
+                subtext = item.get('text')
+                lesson_create_textfile(lesson_obj, textFileName, subtext)
+
+                # Save timestamp to the lesson
+                timestampFileName = f'{youtubeId}_{idx}_timestamp.json'
+                listTimestamp = youtubeListSubtiemstamps[idx]
+                lesson_create_timestamp(lesson_obj, timestampFileName, listTimestamp)
+            return JsonResponse({
+                "message": f"Create lesson {lessonName} successfully!",
+                "lesson_name": fristLessonName,
+                "course_name": courseName
+            }, status = 200)
+    except Exception as e:
+        print("Exception occurred while creating lesson: ", e)
+        traceback.print_exc()
+        return JsonResponse({
+            "message": f"There is a error with creating lesson : {str(e)}"
+        }, status = 500)
+
+
+
+
+
+
+
+
+    
+
 
 @csrf_exempt
 @login_required
@@ -294,18 +328,18 @@ def create_lesson_manually(request):
             for idx, subtext in enumerate(list_subtexts):
                 basename = f'{lesson_name} {idx + 1}'
                 if idx == 0:
-                    sub_lesson_name = lesson_name
+                    subLessonName = lesson_name
                 else:
-                    sub_lesson_name = generate_unique_lesson_name(course, basename)
-                list_lesson_names.append(sub_lesson_name)
-                text_file_name  = sub_lesson_name + '.json'
+                    subLessonName = generate_unique_lesson_name(course, basename)
+                list_lesson_names.append(subLessonName)
+                text_file_name  = subLessonName + '.json'
                 list_ref, list_id = get_lists_from_text(subtext)
                 text_file_dict = {'list_ref': list_ref, 'list_id': list_id}
                 text_file_bytes = json.dumps(text_file_dict, ensure_ascii=False).encode('utf-8')
                 text_file= ContentFile(text_file_bytes)
                 lesson_obj =  Lessons.objects.create(
                     course = course,
-                    lesson_name = sub_lesson_name,
+                    lesson_name = subLessonName,
                     last_open_at = timezone.now()
                 )
 

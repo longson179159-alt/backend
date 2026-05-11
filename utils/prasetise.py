@@ -1,8 +1,4 @@
-from lemminflect import getAllInflections
 
-# print(getAllInflections("run", upos="VERB"))
-# print(getAllInflections("dog", upos="NOUN"))
-# print(getAllInflections("big", upos="ADJ"))
 
 from word2word import Word2word
 

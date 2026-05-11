@@ -65,8 +65,8 @@ def logout_user(request):
 
 
 def current_user(request):
-    print('cookies', request.COOKIES)
-    print('session key', request.session.session_key)
+    # print('cookies', request.COOKIES)
+    # print('session key', request.session.session_key)
 
     print('debug current_user hit', request.method, request.path, request.user)
     if request.method != "GET":

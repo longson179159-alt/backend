@@ -118,7 +118,6 @@ def get_subtexts_and_subtimestamp(list_timestamp, max_minutes = 15):
             start_current_chuck = item['start']
             end_time_current_chuck = max_minutes * 60 * (index_current_chuck + 1)
 
-            current_lesson_timestamp
 
 
     if current_subtext_lines:
