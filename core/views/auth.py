@@ -95,7 +95,7 @@ def current_user(request):
 
     return JsonResponse(
         {
-        "DataCourse": listCourseName,
+        "DataCourse": list(listCourseName),
         "DataLange": demoDataLang
         },
         status=200,
