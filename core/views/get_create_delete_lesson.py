@@ -150,11 +150,16 @@ def create_youtube_lesson(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Authentication required"}, status=401)
     
+    
     data = json.loads(request.body) 
     youtubeId = data.get('youtubeId', "").strip()
     lessonName = data.get('lessonName', "").strip()
     courseName = data.get('courseName', "").strip()
     youtubeGlobalTimestamp = data.get('youtubeGlobalTimestamp', [])
+    language = data.get('language', 'en').strip()
+
+    if language != "English":
+        return JsonResponse({"message": "Currently, only English lessons are supported."}, status=400)
 
     if not lessonName or not courseName or not youtubeId:
         return JsonResponse({"message": "Missing required fields"}, status = 400)

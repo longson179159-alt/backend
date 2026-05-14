@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
-
+from core.models import Courses
 import json
 
 
@@ -77,13 +77,26 @@ def current_user(request):
         print('debug current_user not authenticated')
         return JsonResponse({"authenticated": False}, status=401)
     print('debug current_user authenticated')
+    # get current user's course name
+    listCourseName = Courses.objects.filter(user = request.user).values_list('course_name', flat=True)
+    numberOfEnglishKnowWords = request.user.words_set.filter(word_status__in=[4, 5]).count()
+
+    demoDataLang = {
+        'username': 'Nguyenson',
+        'currentLanguage': 'English',
+        'numberKnowWords': {
+            'English': numberOfEnglishKnowWords,
+            'French': 80,
+            'Chinese': 50,
+        },
+        }
+    
+
+
     return JsonResponse(
         {
-            "authenticated": True,
-            "user": {
-                "id": request.user.id,
-                "email": request.user.email,
-            },
+        "DataCourse": listCourseName,
+        "DataLange": demoDataLang
         },
         status=200,
     )
