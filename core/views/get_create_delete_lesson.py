@@ -17,7 +17,6 @@ import os
 from urllib.parse import urlparse
 
 @login_required
-
 def get_lesson(request):
     if request.method != "GET":
         return JsonResponse({"message" : "Invalid request!"}, status = 405)
@@ -141,7 +140,6 @@ def lesson_create_timestamp(lesson, timestampFileName, listTimestamp):
 
 
 @transaction.atomic
-@csrf_exempt
 @login_required
 def create_youtube_lesson(request):
     if request.method != "POST":
@@ -255,15 +253,6 @@ def create_youtube_lesson(request):
 
 
 
-
-
-
-
-
-    
-
-
-@csrf_exempt
 @login_required
 @transaction.atomic
 def create_lesson_manually(request):
@@ -271,95 +260,115 @@ def create_lesson_manually(request):
         return JsonResponse({'message' : 'Invalid request !'}, status = 405)
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Authentication required"}, status=401)
-    lesson_name = request.POST.get('lesson_name', "").strip()
-    course_name = request.POST.get("course_name", "default").strip()
-    input_text = request.POST.get("inputText", "").strip()
-    frontend_text_file = request.FILES.get('textfile')
-    picture_file = request.FILES.get('picture')
-    audio_file = request.FILES.get('audiofile')
+    
+    if request.content_type and "application/json" in request.content_type:
+        try:
+            data = json.loads(request.body.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON body"}, status=400)
+    else:
+        data = request.POST
 
-    print('input_text', input_text)
+    lessonName = (data.get("lessonName") or data.get("lesson_name") or "").strip()
+    courseName = (data.get("courseName") or data.get("course_name") or "default").strip()
+    inputText = (data.get("inputText") or data.get("input_text") or "").strip()
+    language = (data.get("language") or "English").strip()
 
-    if not lesson_name or (not input_text and not frontend_text_file):
+    if language.lower() not in {"english", "en"}:
+        return JsonResponse({"message": "Currently, only English lessons are supported."}, status=400)
+
+    frontend_text_file = request.FILES.get("textfile")
+    pictureFile = request.FILES.get("picture")
+
+    if language.lower() not in {"english", "en"}:
+        return JsonResponse({"message": "Currently, only English lessons are supported."}, status=400)
+
+
+    if not lessonName or not courseName or (not inputText and not frontend_text_file):
         return JsonResponse({'message' : 'Missing necessary fields!'}, status = 400)
+
+    course, created = Courses.objects.get_or_create(
+        user = request.user,
+        course_name = courseName,
+        defaults= {'last_open_at': timezone.now()}
+    )
+
+    if not created:
+        course.last_open_at = timezone.now()
+        course.save(update_fields=['last_open_at'])
     
 
-    course, created = Courses.objects.get_or_create(user = request.user, course_name = course_name)
-    
-    if Lessons.objects.filter(course = course, lesson_name = lesson_name).exists():
-        return JsonResponse({"message": 'Lesson already exists!'}, status = 409)
-    
-    
     try:
-        if input_text:
+        if inputText:
             # print('debug get sub texts')
-            list_subtexts = get_subtexts(input_text)
-            # print('list_subtexts', list_subtexts)
+            listSubtexts = get_subtexts(inputText)
+    
         else:
             if not validate_file_size(frontend_text_file): 
                 return JsonResponse({'message': 'File size must be under 50MB'}, status = 400)
             text = convert_input_to_text(frontend_text_file)
-            list_subtexts = get_subtexts(text)
+            if not text.strip():
+                return JsonResponse({'message': 'Uploaded file is empty'}, status=400)
+            listSubtexts = get_subtexts(text)
 
 
-        if len(list_subtexts) == 1:
-            list_ref, list_id = get_lists_from_text(list_subtexts[0])
-            text_file_dict = {"list_ref": list_ref, "list_id" : list_id}
-            # print('text_file_dict', text_file_dict)
-            text_file_bytes = json.dumps(text_file_dict, ensure_ascii=False).encode('utf-8')
-            text_file_name = lesson_name + '.json'
-            text_file = ContentFile(text_file_bytes)
+        if len(listSubtexts) == 1:
+            firstLessonName = generate_unique_lesson_name(course, lessonName)
+            subtext = listSubtexts[0]
 
-            lesson= Lessons.objects.create(course = course, lesson_name = lesson_name, last_open_at = timezone.now())
-            lesson.text_file.save(text_file_name, text_file, save = True)
+            lesson = Lessons.objects.create(
+                course = course,
+                lesson_name = firstLessonName, 
+                last_open_at = timezone.now()
+            )
+            lesson_create_textfile(lesson, firstLessonName, subtext)
 
 
-            if picture_file:
-                lesson.lesson_img_file.save(picture_file.name, picture_file, save = True)
-            if audio_file:
-                lesson.audio_file.save(audio_file.name, audio_file, save= True)
+            if pictureFile:
+                lesson.lesson_img_file.save(pictureFile.name, pictureFile, save = True)
             
-            course.last_open_at = timezone.now()
-            course.save(update_fields= ['last_open_at'])
             return JsonResponse({
-                'message' : f'Create lesson {lesson_name} successfully!',
-                "lesson_name": lesson_name,
-                "course_name": course_name
+                'message' : f'Create lesson {firstLessonName} successfully!',
+                "lesson_name": firstLessonName,
+                "course_name": courseName
             }, status = 200)
 
             
         else:
-            list_lesson_names = []
-            for idx, subtext in enumerate(list_subtexts):
-                basename = f'{lesson_name} {idx + 1}'
+            for idx, subtext in enumerate(listSubtexts):
+
+                basename = f'{lessonName} {idx + 1}'
                 if idx == 0:
-                    subLessonName = lesson_name
+                    subLessonName = generate_unique_lesson_name(course, lessonName)
+                    firstLessonName = subLessonName
                 else:
+                    basename = f'{lessonName} {idx + 1}'
                     subLessonName = generate_unique_lesson_name(course, basename)
-                list_lesson_names.append(subLessonName)
-                text_file_name  = subLessonName + '.json'
-                list_ref, list_id = get_lists_from_text(subtext)
-                text_file_dict = {'list_ref': list_ref, 'list_id': list_id}
-                text_file_bytes = json.dumps(text_file_dict, ensure_ascii=False).encode('utf-8')
-                text_file= ContentFile(text_file_bytes)
-                lesson_obj =  Lessons.objects.create(
+
+                lesson_obj = Lessons.objects.create(
                     course = course,
                     lesson_name = subLessonName,
                     last_open_at = timezone.now()
                 )
 
-                lesson_obj.text_file.save(text_file_name, text_file, save = True)
-                if picture_file:
-                    lesson_obj.lesson_img_file.save(picture_file.name, picture_file, save = True)
+                lesson_create_textfile(lesson_obj, subLessonName, subtext)
 
-            course.last_open_at = timezone.now()
-            course.save(update_fields= ['last_open_at'])
+                if pictureFile:
+                    lesson_obj.lesson_img_file.save(pictureFile.name, pictureFile, save = True)
+
             return JsonResponse({
-                'message': f'Create {len(list_subtexts)} lessons.',
-                "lesson_name": list_lesson_names[0],
-                'course_name': course_name
+                'message' : f'Create lesson {lessonName} successfully!',
+                "lesson_name": firstLessonName,
+                "course_name": courseName
             }, status = 200)
         
+    except Exception as e:
+        print("Exception occurred while creating lesson: ", e)
+        traceback.print_exc()
+        return JsonResponse({
+            "message": f"There is a error with creating lesson : {str(e)}"
+        }, status = 500)
+                
         
     except Exception as e:
         print('Exception occurred: ', e)

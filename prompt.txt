@@ -1,0 +1,17 @@
+Please review my codebase and find bugs, errors, bad logic, broken imports, wrong paths, and anything that may cause runtime problems.
+
+For every issue, give me:
+
+
+2. Exact line number
+3. The problematic code
+4. Why it is wrong
+5. The corrected code
+6. Severity: high / medium / low
+
+Important:
+- Do not change code automatically 
+- Focus on real bugs, not style preferences.
+- Give results in a clickable format with file paths and line numbers, for example:
+  src/components/Header.vue:25
+- Make sure clicking the file/line can take me directly to the issue in VS Code.
