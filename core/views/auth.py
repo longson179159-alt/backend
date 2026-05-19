@@ -66,7 +66,7 @@ def logout_user(request):
 def current_user(request):
 
 
-    # print('debug current_user hit', request.method, request.path, request.user)
+    print('debug current_user hit', request.method, request.path, request.user)
     if request.method != "GET":
         return JsonResponse({"message": "Invalid method"}, status=405)
 
