@@ -138,7 +138,7 @@ def lesson_create_timestamp(lesson, timestampFileName, listTimestamp):
     timestampFile = ContentFile(timestampFileBytes)
     lesson.timestamp_file.save(timestampFileName, timestampFile, save = True )
 
-# @csrf_exempt
+@csrf_exempt
 @transaction.atomic
 @login_required
 def create_youtube_lesson(request):
@@ -253,7 +253,7 @@ def create_youtube_lesson(request):
         }, status = 500)
 
 
-# @csrf_exempt
+@csrf_exempt
 @login_required
 @transaction.atomic
 def create_lesson_manually(request):
