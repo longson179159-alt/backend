@@ -155,7 +155,8 @@ def create_youtube_lesson(request):
     courseName = data.get('courseName', "").strip()
     youtubeGlobalTimestamp = data.get('youtubeGlobalTimestamp', [])
     language = data.get('language', 'en').strip()
-
+    print("In youtube branch, useName : ", request.user.username)
+    print("first subtitle : ", youtubeGlobalTimestamp[0].get('text', ''))
     if language != "English":
         return JsonResponse({"message": "Currently, only English lessons are supported."}, status=400)
 
