@@ -273,6 +273,7 @@ def create_lesson_manually(request):
     courseName = (data.get("courseName") or data.get("course_name") or "default").strip()
     inputText = (data.get("inputText") or data.get("input_text") or "").strip()
     language = (data.get("language") or "English").strip()
+    print('inputText :', inputText)
 
     if language.lower() not in {"english", "en"}:
         return JsonResponse({"message": "Currently, only English lessons are supported."}, status=400)
