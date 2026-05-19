@@ -44,7 +44,7 @@ class CustomerProfile(models.Model):
 
 
 class SystemTopics(models.Model):
-    topic_name = models.CharField(max_length=100)
+    topic_name = models.CharField(max_length=255)
 
     def __str__(self):
         return self.topic_name
@@ -55,7 +55,7 @@ def upload_system_course_file(instance, filename):
 class SystemCourses(models.Model):
     topic = models.ForeignKey(SystemTopics, on_delete=models.CASCADE)
 
-    course_name = models.CharField(max_length=100)
+    course_name = models.CharField(max_length=255)
 
     course_img_file = models.FileField(upload_to= upload_system_course_file, null=True, blank=True)
 
@@ -69,7 +69,7 @@ def upload_system_lesson_file(instance, filename):
 class SystemLessons(models.Model):
     course = models.ForeignKey(SystemCourses, on_delete=models.CASCADE)
 
-    lesson_name = models.CharField(max_length=100)
+    lesson_name = models.CharField(max_length=255)
 
     youtube_id = models.CharField(max_length=255, null=True, blank=True)
 
@@ -112,7 +112,7 @@ class Courses(models.Model):
         blank= True
     )
 
-    course_name = models.CharField(max_length=100)
+    course_name = models.CharField(max_length=255)
 
     last_open_at = models.DateTimeField(null = True, blank=True)
 
@@ -136,7 +136,7 @@ class Lessons(models.Model):
         blank=True
     )
 
-    lesson_name = models.CharField(max_length=100)
+    lesson_name = models.CharField(max_length=255)
 
     created_at = models.DateTimeField(auto_now_add= True)
 
@@ -183,7 +183,7 @@ class Words(models.Model):
 
     change_to_learn_at = models.DateTimeField(null=True, blank=True)  
 
-    word_key = models.CharField(max_length=50)
+    word_key = models.CharField(max_length=100)
 
     word_status = models.IntegerField()
 
@@ -211,7 +211,7 @@ class Word_Meanings(models.Model):
 class Word_Tags(models.Model):
     word = models.ForeignKey(Words, on_delete=models.CASCADE)
 
-    tag = models.CharField(max_length=20)
+    tag = models.CharField(max_length=100)
 
     def __str__(self):
         return f"{self.word} - {self.tag}"
@@ -257,7 +257,7 @@ class Phrase_Meanings(models.Model):
 class Phrase_Tags(models.Model):
     phrase = models.ForeignKey(Phrases, on_delete=models.CASCADE)
 
-    tag = models.CharField(max_length=20)
+    tag = models.CharField(max_length=100)
 
     def __str__(self):
         return f"{self.phrase} - {self.tag}"

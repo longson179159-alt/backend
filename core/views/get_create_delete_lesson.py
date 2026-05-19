@@ -22,16 +22,16 @@ def get_lesson(request):
         return JsonResponse({"message" : "Invalid request!"}, status = 405)
     lesson_name = request.GET.get("lesson_name", "").strip()
     course_name = request.GET.get("course_name", "").strip()
-    print("CONTENT_TYPE", request.content_type)
-    print("GET", request.GET)
-    print("USER", request.user)
+    # print("CONTENT_TYPE", request.content_type)
+    # print("GET", request.GET)
+    # print("USER", request.user)
     if not lesson_name or not course_name:
         return JsonResponse({"message": "Missing lesson name or course name!"}, status = 400)
 
     try:
         course = Courses.objects.get(user = request.user, course_name = course_name)
         lesson = Lessons.objects.get(course = course ,lesson_name=lesson_name)
-        print("get lesson object :",  lesson.lesson_name)
+        # print("get lesson object :",  lesson.lesson_name)
         
 
         with lesson.text_file.open("rb") as f:
@@ -270,8 +270,8 @@ def create_lesson_manually(request):
     else:
         data = request.POST
 
-    lessonName = (data.get("lessonName") or data.get("lesson_name") or "").strip()
-    courseName = (data.get("courseName") or data.get("course_name") or "default").strip()
+    lessonName = (data.get("lessonName") or data.get("lesson_name") or "").strip()[:200]
+    courseName = (data.get("courseName") or data.get("course_name") or "default").strip()[:200]
     inputText = (data.get("inputText") or data.get("input_text") or "").strip()
     language = (data.get("language") or "English").strip()
     print('useName :', request.user.username)
