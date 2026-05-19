@@ -48,8 +48,7 @@ def login_user(request):
 
         if user is not None:
             login(request, user)
-            print("after login session_key:", request.session.session_key)
-            print("session modified:", request.session.modified)
+          
             return JsonResponse({"message": "login successfully"}, status=200)
         return JsonResponse({"message" : "Invalid account"}, status=401)
     except Exception as e:
@@ -57,7 +56,7 @@ def login_user(request):
     
 
 def logout_user(request):
-    # print("logout_user hit", request.method, request.path, request.user)
+   
     if request.method != "POST":
         return JsonResponse({"message": "Invalid method"}, status=405)
     logout(request)
@@ -65,18 +64,17 @@ def logout_user(request):
 
 
 def current_user(request):
-    # print('cookies', request.COOKIES)
-    # print('session key', request.session.session_key)
 
-    print('debug current_user hit', request.method, request.path, request.user)
+
+    # print('debug current_user hit', request.method, request.path, request.user)
     if request.method != "GET":
         return JsonResponse({"message": "Invalid method"}, status=405)
 
-    print('debug current_user user', request.user)
+    # print('debug current_user user', request.user)
     if not request.user.is_authenticated:
-        print('debug current_user not authenticated')
+        # print('debug current_user not authenticated')
         return JsonResponse({"authenticated": False}, status=401)
-    print('debug current_user authenticated')
+    # print('debug current_user authenticated')
     # get current user's course name
     listCourseName = Courses.objects.filter(user = request.user).values_list('course_name', flat=True)
     numberOfEnglishKnowWords = request.user.words_set.filter(word_status__in=[4, 5]).count()
