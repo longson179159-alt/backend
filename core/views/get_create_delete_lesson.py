@@ -96,6 +96,9 @@ def delete_lesson(request):
     data = json.loads(request.body.decode('utf-8') or '{}')
     lesson_name = data.get('lesson_name', '').strip()
     course_name = data.get('course_name', '').strip()
+    print("delete lesson, user :", request.user.username)
+    print("delete lesson, lesson_name :", lesson_name)
+    print("delete lesson, course_name :", course_name)
     if not lesson_name or not course_name:
         return JsonResponse({'message': f'Missing required fields'}, status = 400)
 
